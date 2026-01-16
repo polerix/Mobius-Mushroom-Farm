@@ -1,0 +1,1605 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MÖBIUS MUSHROOM FARM</title>
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #9dff9d;
+      --dim: #5abf5a;
+      --warn: #ffd27a;
+      --bad: #ff7a7a;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .topbar {
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--dim);
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      flex: 1;
+      overflow: auto;
+      line-height: 1.05;
+      font-size: 14px;
+      text-shadow: 0 0 10px rgba(120, 255, 120, .15);
+      user-select: none;
+      white-space: pre;
+    }
+
+    .hint {
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--dim);
+      border-top: 1px solid rgba(100, 255, 100, .15);
+    }
+
+    .kbd {
+      color: var(--fg)
+    }
+
+    .dim {
+      color: var(--dim)
+    }
+
+    .centi {
+      color: #ffff00
+    }
+
+    .mush {
+      color: #ff0000
+    }
+
+    .tractor {
+      color: #00ffff;
+    }
+
+    .tractor-working {
+      animation: blink-blue 0.2s infinite;
+    }
+
+    @keyframes blink-blue {
+      0% {
+        color: #00ffff;
+      }
+
+      50% {
+        color: #0055ff;
+      }
+
+      100% {
+        color: #00ffff;
+      }
+    }
+
+    .acid {
+      color: #8B4513;
+    }
+
+    .acid-missile {
+      color: #ccff00;
+    }
+
+    .bad {
+      color: var(--bad);
+    }
+
+    .win {
+      color: #00ffff;
+      text-shadow: 0 0 10px #00ffff;
+    }
+
+    .night {
+      opacity: 0.35;
+    }
+
+    .pyramid {
+      color: #5555ff;
+      text-shadow: 0 0 5px #0000ff;
+    }
+
+    @keyframes strobe {
+      0% {
+        color: #ffffff;
+        text-shadow: 0 0 8px #ffffff;
+      }
+
+      50% {
+        color: #000000;
+        text-shadow: none;
+      }
+
+      100% {
+        color: #ffffff;
+        text-shadow: 0 0 8px #ffffff;
+      }
+    }
+
+    .strobe {
+      animation: strobe 0.1s infinite;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="kbd">MÖBIUS MUSHROOM FARM</span>
+    </div>
+    <pre id="screen"></pre>
+    <div class="hint">
+      Move <span class="kbd">← →</span> / <span class="kbd">A D</span> • Aim <span class="kbd">W/S</span> (Up/Down
+      surface) • Fire <span class="kbd">Space</span> • RemTractor <span class="kbd">Enter</span> • Pause <span
+        class="kbd">P</span> • Restart <span class="kbd">R</span>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // ---------------------------
+      // CONFIG (tweakable knobs)
+      // ---------------------------
+      const W = 54;              // columns per surface
+      const H = 16;              // rows per surface
+      const FPS = 30;
+
+      const EMPTY = "░";
+      const SPORE = ".";
+      const SEED = ",";
+
+      // Mushroom glyphs by stage
+      const MUSH = [" ", "m", "M", "Ø"]; // stage 0 unused
+
+      // Enemy glyphs
+      const CENTI_HEAD = "@";
+      const CENTI_SEG = "*";
+      const PYRAMID = "Δ";
+      const ACID_GLYPH = "x";
+      const TRACTOR_GLYPH = "■";
+
+      // Train
+      const TRAIN_BODY = "█████";
+      const TURRET_UP = "^";
+      const TURRET_DN = "v";
+      const TRAIN_EDGE = "=";
+
+      // Economy / survival
+      const ENERGY_MAX = 99;
+      const SHIELD_MAX = 100;
+      const PODS_MAX = 5;
+
+      const FIRE_COST = 1;          // energy
+      const DEFRAG_COST = 10;       // energy
+      const SHIELD_REGEN_RATE = 0.10; // per tick
+      const TRACTOR_COST = 25;
+      const ENERGY_REGEN_IDLE = 0.02; // per tick baseline
+
+      // Mushrooms
+      // Mushrooms
+      const SPORE_TO_SEED_TICKS = 60;  // spore ages into seed (was 45)
+      const SEED_TO_MUSH_TICKS = 75;  // seed becomes mushroom stage 1 (was 60)
+      const AUTO_GROW_TICKS = 265; // mushroom bursts if left long enough (was 210)
+      const SHOOT_GROW_BOOST = 28;  // shooting accelerates maturity
+
+      const BURST_RADIUS = 2;        // AoE radius
+      const BURST_FLASH_TICKS = 4;
+      const BURST_SEED_CHANCE = 0.38;
+
+      // Enemies
+      const CENTI_LEN_START = 14;
+      const CENTI_STEP_TICKS = 3;     // lower = faster
+      const CENTI_SPAWN_TICKS = 240;  // wave timer (was 420)
+      const PYRAMID_SPAWN_TICKS = 180;
+
+      const TORPEDO_SPEED = 1; // cells per tick for enemy projectiles
+
+      const SUN_TICKS = 5400; // 3min rotation
+
+      // Möbius: when x wraps, flip surface and mirror y
+      const MOBIUS_MIRROR_Y_ON_WRAP = true;
+
+      // Rendering embellishment
+      const CRT_SCANLINE = false; // left here for future mischief
+
+      // ---------------------------
+      // STATE
+      // ---------------------------
+      const screenEl = document.getElementById("screen");
+
+      let rngSeed = (Date.now() ^ 0x9E3779B9) >>> 0;
+      function rand() { // xorshift32
+        rngSeed ^= (rngSeed << 13) >>> 0;
+        rngSeed ^= (rngSeed >>> 17) >>> 0;
+        rngSeed ^= (rngSeed << 5) >>> 0;
+        return (rngSeed >>> 0) / 4294967296;
+      }
+      function randi(n) { return (rand() * n) | 0; }
+
+      const keys = new Set();
+      let paused = false;
+      let gameOver = false;
+      let levelWaiting = false;
+
+      // Two surfaces: 0 (top), 1 (bottom)
+      // Each cell contains:
+      // type: 0 empty, 1 spore, 2 seed, 3 mushroom, 4 bursting (flash), 5 acid
+      // stage: 0..3 for mushroom
+      // t: age timer
+      const farm = [makeGrid(), makeGrid()];
+
+      function makeGrid() {
+        const g = new Array(H);
+        for (let y = 0; y < H; y++) {
+          g[y] = new Array(W);
+          for (let x = 0; x < W; x++) {
+            g[y][x] = { type: 0, stage: 0, t: 0 };
+          }
+        }
+        return g;
+      }
+
+      // Player on the Möbius edge (separator line)
+      let player = {
+        x: (W / 2) | 0,
+        aimSurface: 0, // 0 = shoot up into top surface, 1 = shoot down into bottom
+        energy: 50,
+        shield: 100,
+        score: 0,
+        combo: 0,
+        pods: new Array(PODS_MAX).fill(0), // charge 0..100
+        podsThisLevel: 0,
+        level: 1,
+        klaxonLatch: false
+      };
+
+      // Projectiles
+      // Player shots: {x,y,surface,dy}
+      const shots = [];
+
+      // Enemies
+      const centipedes = []; // Array of {surface, segments:[{x,y}], stepTick, dir}
+      const pyramids = [];  // {surface,x,y,dx,dy, t}
+      const tractors = [];  // {surface,x,y, target:{x,y}|null, t, cleaningTimer}
+      const enemyShots = []; // {surface,x,y,dy}
+
+      let tick = 0;
+      let nextCentiAt = 30;
+      let nextPyramidAt = 60;
+
+      function getPodsRequired(lvl) {
+        return 4 * Math.pow(2, lvl - 1); // 4, 8, 16, 32...
+      }
+
+      // ---------------------------
+      // AUDIO (simple klaxon + pew)
+      // ---------------------------
+      let audioCtx = null;
+      function ensureAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      function isSunLit(surface, x, y) {
+        const linearX = (surface === 0) ? x : (x + W);
+        // Diagonal slant
+        const val = linearX + (y * 0.5);
+        const totalW = W * 2;
+        const sunPos = (tick % SUN_TICKS) / SUN_TICKS * totalW;
+
+        let diff = Math.abs(val - sunPos);
+        if (diff > totalW / 2) diff = totalW - diff;
+
+        return diff < (totalW / 4);
+      }
+
+      function isLit(surface, x, y) {
+        if (isSunLit(surface, x, y)) return true;
+
+        // Pyramid Bioluminescence
+        // Simple distance check to all pyramids on same surface
+        for (let i = 0; i < pyramids.length; i++) {
+          const p = pyramids[i];
+          if (p.surface !== surface) continue;
+          // approximate dist
+          const dx = Math.abs(p.x - x);
+          const dy = Math.abs(p.y - y);
+          // Radius 4 (dist^2 <= 16)
+          if (dx * dx + dy * dy <= 16) return true;
+        }
+        return false;
+      }
+
+      function beep(freq = 440, dur = 0.1, gain = 0.1) {
+        if (!audioCtx) return;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = "square";
+        o.frequency.value = freq;
+        g.gain.value = gain;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + dur);
+      }
+      function klaxon() {
+        if (!audioCtx) return;
+        beep(220, 0.10, 0.06);
+        setTimeout(() => beep(330, 0.10, 0.06), 120);
+        setTimeout(() => beep(220, 0.10, 0.06), 240);
+      }
+
+      // ---------------------------
+      // INPUT
+      // ---------------------------
+      window.addEventListener("keydown", (e) => {
+        const k = e.key.toLowerCase();
+        keys.add(k);
+
+        // Start audio only after user gesture
+        if (!audioCtx) { try { ensureAudio(); } catch { } }
+
+        if (k === "p") paused = !paused;
+        if (k === "r") reset();
+        if (k === "g" && levelWaiting) nextLevel();
+        if (k === "enter") { e.preventDefault(); spawnTractor(); }
+        if (k === " ") e.preventDefault();
+      });
+      window.addEventListener("keyup", (e) => {
+        keys.delete(e.key.toLowerCase());
+      });
+
+      // ---------------------------
+      // GAME SETUP
+      // ---------------------------
+      function reset() {
+        player.score = 0;
+        player.combo = 0;
+        player.pods.fill(0);
+        player.podsThisLevel = 0;
+        player.level = 1;
+
+        gameOver = false;
+        levelWaiting = false;
+        paused = false;
+        tick = 0;
+        shots.length = 0;
+        pyramids.length = 0;
+        enemyShots.length = 0;
+        centipedes.length = 0;
+        tractors.length = 0;
+
+        farm[0] = makeGrid();
+        farm[1] = makeGrid();
+
+        player = {
+          x: (W / 2) | 0,
+          aimSurface: 0,
+          energy: 50,
+          shield: 100,
+          score: 0,
+          combo: 0,
+          pods: new Array(PODS_MAX).fill(0),
+          podsLaunched: 0,
+          podsThisLevel: 0,
+          level: 1,
+          klaxonLatch: false
+        };
+
+        rngSeed = (Date.now() ^ 0xC0FFEE) >>> 0;
+        seedInitialFarm();
+        nextCentiAt = 30;
+        nextPyramidAt = 90;
+      }
+
+      function seedInitialFarm() {
+        // Sprinkle spores/seeds for a living start
+        for (let s = 0; s < 2; s++) {
+          for (let i = 0; i < Math.floor(W * H * 0.09); i++) {
+            const x = randi(W), y = randi(H);
+            const cell = farm[s][y][x];
+            cell.type = (rand() < 0.6) ? 1 : 2; // spore or seed
+            cell.stage = 0;
+            cell.t = randi(50);
+          }
+          // A few starter mushrooms
+          for (let i = 0; i < 10; i++) {
+            const x = randi(W), y = randi(H);
+            const cell = farm[s][y][x];
+            cell.type = 3;
+            cell.stage = 1 + randi(2);
+            cell.t = randi(120);
+          }
+        }
+      }
+
+      // ---------------------------
+      // HELPERS
+      // ---------------------------
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+      function wrapMobius(surface, x, y) {
+        // if x is out of bounds, wrap and flip surface; optionally mirror y
+        if (x < 0) {
+          x = W - 1;
+          surface ^= 1;
+          if (MOBIUS_MIRROR_Y_ON_WRAP) y = (H - 1) - y;
+        } else if (x >= W) {
+          x = 0;
+          surface ^= 1;
+          if (MOBIUS_MIRROR_Y_ON_WRAP) y = (H - 1) - y;
+        }
+        // y wraps within the same surface normally (top/bottom edges are edges of surface)
+        y = clamp(y, 0, H - 1);
+        return { surface, x, y };
+      }
+
+      function inBounds(x, y) { return x >= 0 && x < W && y >= 0 && y < H; }
+
+      function cellChar(cell) {
+        if (cell.type === 0) return EMPTY;
+        if (cell.type === 1) return SPORE;
+        if (cell.type === 2) return SEED;
+        if (cell.type === 3) return MUSH[cell.stage] || "M";
+        if (cell.type === 4) return "*";
+        if (cell.type === 5) return ACID_GLYPH;
+        return "?";
+      }
+
+      function energyBar(pct, width = 10) {
+        const filled = Math.round((pct / 100) * width);
+        return "[" + "=".repeat(filled) + " ".repeat(Math.max(0, width - filled)) + "]";
+      }
+
+      function shieldColorTag() {
+        if (player.shield <= 20) return "!!";
+        if (player.shield <= 45) return "!";
+        return " ";
+      }
+
+      function countFarmDensity() {
+        // percent of cells that are not empty on both surfaces
+        let filled = 0;
+        for (let s = 0; s < 2; s++) {
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              if (farm[s][y][x].type !== 0) filled++;
+            }
+          }
+        }
+        return Math.round((filled / (2 * W * H)) * 100);
+      }
+
+      // ---------------------------
+      // CORE MECHANICS
+      // ---------------------------
+      function tryFire() {
+        if (gameOver || paused) return;
+        if (player.energy < FIRE_COST) return;
+
+        player.energy -= FIRE_COST;
+        // Fire from edge line into selected surface
+        const sx = player.x;
+        const surface = player.aimSurface;
+        const dy = (surface === 0) ? -1 : +1;
+
+        // Starting y: adjacent to edge line
+        const yStart = (surface === 0) ? (H - 1) : 0;
+        shots.push({ surface, x: sx, y: yStart, dy });
+
+        beep(880, 0.03, 0.03);
+      }
+
+      function spawnTractor() {
+        if (gameOver || paused) return;
+        if (player.energy < TRACTOR_COST) return; // Tractor cost
+        player.energy -= TRACTOR_COST;
+
+        // Spawn at player X on aimed surface
+        const sx = player.x;
+        const sy = (player.aimSurface === 0) ? (H - 1) : 0;
+        tractors.push({
+          surface: player.aimSurface,
+          x: sx,
+          y: sy,
+          target: null,
+          t: 0,
+          cleaningTimer: 0
+        });
+
+        // nice mechanical sound
+        beep(110, 0.15, 0.08);
+        setTimeout(() => beep(110, 0.15, 0.08), 200);
+      }
+
+      function tryDefragPulse() {
+        if (gameOver || paused) return;
+        if (player.energy < DEFRAG_COST) return;
+        player.energy -= DEFRAG_COST;
+
+        // "Defrag pulse": spores/seed drift one step toward nearest mushroom cluster on each surface.
+        for (let s = 0; s < 2; s++) {
+          // Build list of mushroom positions weighted by stage
+          const targets = [];
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const c = farm[s][y][x];
+              if (c.type === 3) {
+                for (let k = 0; k < c.stage; k++) targets.push({ x, y });
+              }
+            }
+          }
+          if (targets.length === 0) continue;
+
+          // Move a subset to avoid huge reordering artifacts
+          const movers = [];
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const c = farm[s][y][x];
+              if (c.type === 1 || c.type === 2) movers.push({ x, y, type: c.type, t: c.t });
+            }
+          }
+
+          // Shuffle movers
+          for (let i = movers.length - 1; i > 0; i--) {
+            const j = randi(i + 1);
+            const tmp = movers[i]; movers[i] = movers[j]; movers[j] = tmp;
+          }
+
+          const limit = Math.min(movers.length, Math.floor(movers.length * 0.35));
+          for (let i = 0; i < limit; i++) {
+            const m = movers[i];
+            const target = targets[randi(targets.length)];
+
+            const dx = Math.sign(target.x - m.x);
+            const dy = Math.sign(target.y - m.y);
+
+            const nx = m.x + (rand() < 0.65 ? dx : 0);
+            const ny = m.y + (rand() < 0.65 ? dy : 0);
+
+            if (!inBounds(nx, ny)) continue;
+            const from = farm[s][m.y][m.x];
+            const to = farm[s][ny][nx];
+            if (to.type === 0) { // only move into empty
+              to.type = m.type;
+              to.stage = 0;
+              to.t = m.t;
+              from.type = 0; from.stage = 0; from.t = 0;
+            }
+          }
+        }
+
+        // little "system" sound
+        beep(330, 0.06, 0.05);
+        setTimeout(() => beep(220, 0.08, 0.05), 80);
+      }
+
+      function shootCell(surface, x, y) {
+        x = Math.round(x);
+        if (!inBounds(x, y)) return false;
+        const c = farm[surface][y][x];
+        if (c.type === 3) {
+          // Mushroom: accelerate growth
+          c.t += SHOOT_GROW_BOOST;
+          if (c.stage < 3) c.stage++;
+          else {
+            // Overstimulated → burst now
+            burstMushroom(surface, x, y);
+          }
+          // Small shield/energy bump (nurture reward)
+          player.shield = clamp(player.shield + 0.6, 0, SHIELD_MAX);
+          player.energy = clamp(player.energy + 0.2, 0, ENERGY_MAX);
+          return true;
+        }
+        if (c.type === 1 || c.type === 2) {
+          // Spore/seed: "promote" it
+          if (c.type === 1) {
+            c.type = 2;
+            c.t = 0;
+          } else if (c.type === 2) {
+            c.type = 3;
+            c.stage = 1;
+            c.t = 0;
+          }
+          player.energy = clamp(player.energy + 0.1, 0, ENERGY_MAX);
+          return true;
+        }
+        return false;
+      }
+
+      function burstMushroom(surface, x, y) {
+        const c = farm[surface][y][x];
+        // Turn into flash
+        c.type = 4;
+        c.stage = 0;
+        c.t = BURST_FLASH_TICKS;
+
+        // AoE: No longer kills enemies (passive farm is safe for them)
+        // Just spreads spores
+
+        // Seed spores
+        for (let yy = y - BURST_RADIUS; yy <= y + BURST_RADIUS; yy++) {
+          for (let xx = x - BURST_RADIUS; xx <= x + BURST_RADIUS; xx++) {
+            if (!inBounds(xx, yy)) continue;
+            if (rand() > BURST_SEED_CHANCE) continue;
+            const cc = farm[surface][yy][xx];
+            if (cc.type === 0) {
+              cc.type = 1; // spore
+              cc.stage = 0;
+              cc.t = 0;
+            }
+          }
+        }
+
+        // Rewards (Small bump for event)
+        player.energy = clamp(player.energy + 2, 0, ENERGY_MAX);
+        player.shield = clamp(player.shield + 1.5, 0, SHIELD_MAX);
+      }
+
+      function spawnCentipede(overrides = {}) {
+        if (!overrides.ignoreCap && centipedes.length >= 24) return; // Cap at 24 (unless forced)
+
+        const surface = (overrides.surface !== undefined) ? overrides.surface : randi(2);
+        // Default logic for random spawn (edge) if no override
+        const defY = (surface === 0) ? 0 : (H - 1);
+        const startX = (overrides.x !== undefined) ? overrides.x : randi(W);
+        const startY = (overrides.y !== undefined) ? overrides.y : defY;
+
+        const segs = [];
+        for (let i = 0; i < CENTI_LEN_START; i++) {
+          segs.push({ x: (startX - i + W) % W, y: startY });
+        }
+        centipedes.push({
+          surface,
+          segments: segs,
+          stepTick: 0,
+          stepTick: 0,
+          stepMax: overrides.speed || CENTI_STEP_TICKS, // Allow overriding speed
+          dir: (rand() < 0.5) ? 1 : -1,
+          spawnGrace: 30 // 1s immunity to avoid instant-collision on spawn
+        });
+      }
+
+      function spawnPyramid(overrides = {}) {
+        const surface = (overrides.surface !== undefined) ? overrides.surface : randi(2);
+        const x = (overrides.x !== undefined) ? overrides.x : randi(W);
+        const y = (overrides.y !== undefined) ? overrides.y : randi(H);
+        const dx = (rand() < 0.5) ? -1 : 1;
+        const dy = (rand() < 0.5) ? -1 : 1;
+        const size = overrides.size || 1;
+        pyramids.push({ surface, x, y, dx, dy, t: 0, size });
+      }
+
+      function findTarget(surface, needsHealing = false) {
+        // Find best target: Acid (Priority) > Big Mushroom
+        let best = null;
+        let bestScore = -1e9;
+
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const c = farm[surface][y][x];
+            let score = -1e9;
+
+            // Prioritize Pyramids (Tasty)
+            let isPyramid = false;
+            for (const p of pyramids) {
+              if (p.surface === surface && p.x === x && p.y === y) {
+                score = 1000 + p.size * 100;
+                if (needsHealing) score += 5000; // Desperate for healing
+                isPyramid = true;
+                break;
+              }
+            }
+            if (isPyramid) { } // score set above
+            else if (c.type === 5) { // Acid = Delicacy
+              score = 500;
+            } else if (c.type === 3) { // Mushroom
+              const edgeDist = (surface === 0) ? (H - 1) - y : y;
+              score = c.stage * 50 - edgeDist;
+            } else {
+              continue;
+            }
+
+            if (score > bestScore) {
+              bestScore = score;
+              best = { x, y, type: c.type };
+            }
+          }
+        }
+        return best;
+      }
+
+      function damagePlayer(amount = 8) {
+        // shields absorb; energy also takes a hit when shields do
+        if (gameOver) return;
+
+        if (player.shield > 0) {
+          player.shield = clamp(player.shield - amount, 0, SHIELD_MAX);
+          player.energy = clamp(player.energy - Math.ceil(amount / 3), 0, ENERGY_MAX);
+          if (player.shield <= 25 && !player.klaxonLatch) {
+            player.klaxonLatch = true;
+            klaxon();
+          }
+          if (player.shield > 30) player.klaxonLatch = false;
+        } else {
+          // Hull hit: lose a pod if any charged, else game over
+          let lost = false;
+          for (let i = player.pods.length - 1; i >= 0; i--) {
+            if (player.pods[i] > 0) {
+              player.pods[i] = 0;
+              lost = true;
+              break;
+            }
+          }
+          if (!lost) gameOver = true;
+        }
+      }
+
+      function nextLevel() {
+        levelWaiting = false;
+        player.level++;
+        player.podsThisLevel = 0;
+        player.energy += 25; // refuel
+
+        // Clear local enemies
+        centipedes.length = 0;
+        pyramids.length = 0;
+
+        // Reset wave timers
+        nextCentiAt = tick + 60;
+        nextPyramidAt = tick + 30;
+      }
+
+      function completeLevel() {
+        levelWaiting = true;
+        // Epic 8-bit Arpeggio
+        const notes = [440, 554, 659, 880, 440, 554, 659, 880, 1108, 1760];
+        let d = 0;
+        for (const n of notes) {
+          setTimeout(() => beep(n, 0.1, 0.1), d);
+          d += 120;
+        }
+      }
+
+      function update() {
+        if (paused) return;
+        if (gameOver || levelWaiting) {
+          // still render
+          return;
+        }
+
+        tick++;
+
+        // Controls
+        const left = keys.has("arrowleft") || keys.has("a");
+        const right = keys.has("arrowright") || keys.has("d");
+        const aimUp = keys.has("w") || keys.has("arrowup");
+        const aimDn = keys.has("s") || keys.has("arrowdown");
+        const firing = keys.has(" ");
+
+        if (left) player.x = (player.x - 1 + W) % W;
+        if (right) player.x = (player.x + 1) % W;
+        if (aimUp) player.aimSurface = 0;
+        if (aimDn) player.aimSurface = 1;
+
+        // Fire with a small cadence
+        if (firing && (tick % 3 === 0)) tryFire();
+
+        // Baseline energy regen (tiny)
+        player.energy = clamp(player.energy + ENERGY_REGEN_IDLE, 0, ENERGY_MAX);
+
+        // Farm tick: spores -> seeds -> mushrooms, mushrooms mature & burst
+        for (let s = 0; s < 2; s++) {
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const c = farm[s][y][x];
+
+              // Day/Night Growth Control (Diagonal)
+              const lit = isLit(s, x, y);
+              // If in shade, 95% chance to skip growth steps (but don't skip explosions/decays)
+              const frozen = !lit && rand() > 0.05;
+
+              if (c.type === 1) { // spore
+                if (!frozen) c.t++;
+                if (c.t >= SPORE_TO_SEED_TICKS) {
+                  c.type = 2; c.t = 0;
+                }
+              } else if (c.type === 2) { // seed
+                if (!frozen) c.t++;
+                if (c.t >= SEED_TO_MUSH_TICKS) {
+                  c.type = 3; c.stage = 1; c.t = 0;
+                }
+              } else if (c.type === 3) { // mushroom
+                if (!frozen) c.t++;
+                // farm economy: bigger = better
+                player.energy = clamp(player.energy + (0.004 * c.stage), 0, ENERGY_MAX);
+                player.shield = clamp(player.shield + (0.002 * (4 - c.stage)), 0, SHIELD_MAX);
+
+                // auto growth toward bursting
+                if (c.t >= AUTO_GROW_TICKS) {
+                  burstMushroom(s, x, y);
+                } else {
+                  // gentle autonomous stage rise (slower now)
+                  if (!frozen && c.stage < 3 && c.t % 120 === 0 && rand() < 0.35) c.stage++;
+                }
+              } else if (c.type === 4) { // burst flash
+                c.t--;
+                if (c.t <= 0) {
+                  c.type = 0; c.stage = 0; c.t = 0;
+                }
+              }
+              // Type 5 (Acid) does nothing but sit there
+            }
+          }
+        }
+
+        // Shield regen (costs energy subtly)
+        if (player.shield < SHIELD_MAX && player.energy > 0) {
+          const want = SHIELD_REGEN_RATE;
+          player.shield = clamp(player.shield + want, 0, SHIELD_MAX);
+          player.energy = clamp(player.energy - want * 0.18, 0, ENERGY_MAX);
+        }
+
+        // Pods charge: when energy is healthy, trickle into pods
+        const surplus = Math.max(0, player.energy - 45);
+        if (surplus > 0) {
+          for (let i = 0; i < player.pods.length; i++) {
+            if (player.pods[i] < 100) {
+              player.pods[i] = clamp(player.pods[i] + 0.04 * surplus, 0, 100);
+              break;
+            }
+          }
+        }
+        // Launch charged pods (score event)
+        for (let i = 0; i < player.pods.length; i++) {
+          if (player.pods[i] >= 100) {
+            player.pods[i] = 0;
+            player.score += 250;
+            player.podsLaunched++;
+
+            // Tactical Nuke: Clear all centipedes
+            centipedes.length = 0;
+
+            // Audio Reward
+            beep(660, 0.06, 0.05);
+            setTimeout(() => beep(990, 0.05, 0.04), 70);
+
+            player.podsThisLevel++;
+            if (player.podsThisLevel >= getPodsRequired(player.level)) {
+              completeLevel();
+            }
+          }
+        }
+
+        // Spawn waves
+        if (tick >= nextCentiAt) {
+          spawnCentipede();
+          nextCentiAt = tick + CENTI_SPAWN_TICKS + randi(120);
+        }
+        if (tick >= nextPyramidAt) {
+          spawnPyramid();
+          nextPyramidAt = tick + PYRAMID_SPAWN_TICKS + randi(80);
+        }
+
+        // Update player shots
+        for (let sub = 0; sub < 2; sub++) {
+          for (let i = shots.length - 1; i >= 0; i--) {
+            const sh = shots[i];
+
+            // hit enemy?
+            let hit = false;
+
+            // pyramids
+            for (let j = pyramids.length - 1; j >= 0; j--) {
+              const p = pyramids[j];
+              if (p.surface === sh.surface && p.x === sh.x && p.y === sh.y) {
+                pyramids.splice(j, 1);
+                player.score += 15;
+                player.energy = clamp(player.energy + 1.5, 0, ENERGY_MAX);
+                beep(520, 0.03, 0.03);
+                hit = true;
+                break;
+              }
+            }
+
+            // centipede segments
+            if (!hit) {
+              for (let k = centipedes.length - 1; k >= 0; k--) {
+                const centi = centipedes[k];
+                if (centi.surface !== sh.surface) continue;
+
+                for (let j = centi.segments.length - 1; j >= 0; j--) {
+                  const seg = centi.segments[j];
+                  if (j === 0) {
+                    // HEADSHOT! Instant Kill
+                    centipedes.splice(k, 1);
+                    beep(50, 0.1, 0.1);
+                    hit = true;
+
+                    // Night Spawn: Centipede death spawns Pyramid
+                    if (!isSunLit(sh.surface, sh.x, sh.y)) {
+                      spawnPyramid({ surface: sh.surface, x: sh.x, y: sh.y, size: 1 });
+                    }
+                    break;
+                  } else {
+                    // Body shot (existing logic)
+                    centi.segments.splice(j, 1);
+                    player.score += 12;
+                    player.energy = clamp(player.energy + 0.8, 0, ENERGY_MAX);
+                    beep(480, 0.03, 0.03);
+                    hit = true;
+                    if (centi.segments.length === 0) centipedes.splice(k, 1);
+
+                    // Night Spawn: Centipede death spawns Pyramid
+                    if (!isSunLit(sh.surface, sh.x, sh.y)) {
+                      spawnPyramid({ surface: sh.surface, x: sh.x, y: sh.y, size: 1 });
+                    }
+                    break;
+                  }
+                }
+                if (hit) break;
+              }
+            }
+
+            // Friendly Fire: Hit Tractors?
+            if (!hit) {
+              for (let k = tractors.length - 1; k >= 0; k--) {
+                const t = tractors[k];
+                if (t.surface === sh.surface && t.x === sh.x && t.y === sh.y) {
+                  tractors.splice(k, 1); // Destroy tractor
+                  beep(150, 0.1, 0.1); // Sad sound
+                  hit = true;
+                  break;
+                }
+              }
+            }
+
+            // hit farm cell (shoot-to-grow)
+            if (!hit) {
+              if (shootCell(sh.surface, sh.x, sh.y)) {
+                hit = true;
+              }
+            }
+
+            if (hit) {
+              shots.splice(i, 1);
+              continue;
+            }
+
+            // move
+            sh.y += sh.dy;
+
+            // off surface = shot expires
+            if (sh.y < 0 || sh.y >= H) {
+              shots.splice(i, 1);
+            }
+          }
+        }
+
+        // Update pyramids (harassers)
+        for (let i = pyramids.length - 1; i >= 0; i--) {
+          const p = pyramids[i];
+          p.t++;
+
+          // Slight attraction to mushrooms on its surface
+          const target = findTarget(p.surface); // Changed from findBestMushroom to findTarget
+          if (target && p.t % 12 === 0) {
+            p.dx = Math.sign(target.x - p.x) || p.dx;
+            p.dy = Math.sign(target.y - p.y) || p.dy;
+          }
+
+          // Move (Slower: every 10 ticks)
+          if (p.t % 10 === 0) {
+            p.x += p.dx;
+            p.y += p.dy;
+
+            // bounce top/bottom edges, but Möbius wrap on left/right
+            if (p.y < 0) { p.y = 0; p.dy = 1; }
+            if (p.y >= H) { p.y = H - 1; p.dy = -1; }
+
+            const wrapped = wrapMobius(p.surface, p.x, p.y);
+            p.surface = wrapped.surface;
+            p.x = wrapped.x;
+            p.y = wrapped.y;
+          }
+
+          // Growth
+          if (p.t % 300 === 0 && p.size < 8) p.size++;
+
+          // Mitosis
+          // Hive Logic (Mitosis / Factory)
+          if (p.size >= 8) {
+            // Priority: Maintain the Swarm
+            if (centipedes.length < 24) {
+              // Spawn Centipede
+              p.size -= 4; // Consume mass
+              spawnCentipede({
+                surface: p.surface,
+                x: p.x,
+                y: p.y,
+                speed: Math.max(1, CENTI_STEP_TICKS - 1) // Slightly faster spawn?
+              });
+              beep(100, 0.1, 0.1); // Spawning sound
+            } else {
+              // Swarm Full -> Expand the Hive (Mitosis)
+              const sz = 4;
+              pyramids.splice(i, 1);
+              spawnPyramid({ surface: p.surface, x: p.x, y: p.y, size: sz });
+              spawnPyramid({ surface: p.surface, x: p.x, y: p.y, size: sz });
+              continue;
+            }
+          }
+
+          // Occasionally fire toward the edge (train)
+          if (p.t % 40 === 0) {
+            const dy = (p.surface === 0) ? +TORPEDO_SPEED : -TORPEDO_SPEED; // toward edge line
+            enemyShots.push({ surface: p.surface, x: p.x, y: p.y, dy });
+          }
+
+          // If pyramid collides with edge row near player, damage
+          const edgeY = (p.surface === 0) ? (H - 1) : 0;
+          if (p.y === edgeY && Math.abs(p.x - player.x) <= 1) {
+            if (p.t % 40 === 0) {
+              p.dx = (player.x > p.x) ? 1 : -1;
+            }
+          }
+
+          // Ecological Impact
+          // 1. Spreads Acid & Feeds
+          const c = farm[p.surface][p.y][p.x];
+          if (c.type === 3) {
+            // Found Mushroom -> Consume & Grow
+            p.size++;
+            beep(50, 0.05, 0.02); // Low thud
+            c.type = 5; // Convert to Acid
+          } else if (c.type === 0) {
+            c.type = 5; // Just spread acid
+          }
+
+          // 2. Multiply in the Dark
+          if (!isSunLit(p.surface, p.x, p.y) && pyramids.length < 50 && rand() < 0.002) {
+            spawnPyramid({ surface: p.surface, x: p.x, y: p.y });
+          }
+        }
+
+        // Update centipedes (doom noodle swarm)
+        for (let k = centipedes.length - 1; k >= 0; k--) {
+          const centi = centipedes[k];
+          centi.stepTick++;
+          if (centi.spawnGrace > 0) centi.spawnGrace--;
+
+          // Use dynamic speed limit
+          const speedLimit = centi.stepMax || CENTI_STEP_TICKS;
+
+          if (centi.stepTick >= speedLimit) {
+            centi.stepTick = 0;
+
+            const head = centi.segments[0];
+
+            // Strategic Swarm AI
+            // As swarm grows, they ignore mushrooms and hunt the player
+            // But we keep them a bit "dumb" so it's not impossible
+            // 0-2 centipedes = 0% hunt -> 100% Farm
+            // 12 centipedes  = 70% hunt -> 30% Farm (Always some farming)
+            const swarmAggression = clamp((centipedes.length - 2) / 10, 0, 0.70);
+            let target = null;
+
+            if (rand() < swarmAggression) {
+              // HUNT MODE: Targeting Player
+              // Target the player's X on the edge of the current surface
+              const edgeY = (centi.surface === 0) ? (H - 1) : 0;
+              target = { x: player.x, y: edgeY };
+            } else {
+              // FARM MODE: Targeting Mushrooms / Acid
+              // Check if damaged
+              const needsHealing = centi.segments.length < CENTI_LEN_START;
+              target = findTarget(centi.surface, needsHealing);
+            }
+
+            let mx = head.x + centi.dir;
+            let my = head.y;
+
+            if (target) {
+              // greedily step toward target, but keep the slither vibe
+              const dx = Math.sign(target.x - head.x);
+              const dy = Math.sign(target.y - head.y);
+
+              // Bias: mostly x, sometimes y
+              if (rand() < 0.75) {
+                centi.dir = dx || centi.dir;
+                mx = head.x + centi.dir;
+                my = head.y;
+              } else {
+                mx = head.x;
+                my = head.y + dy;
+              }
+            } else {
+              // roam
+              if (rand() < 0.15) centi.dir *= -1;
+              mx = head.x + centi.dir;
+            }
+
+            // stay within y bounds by bouncing (but x wraps Möbius)
+            if (my < 0) { my = 0; }
+            if (my >= H) { my = H - 1; }
+
+            const wrapped = wrapMobius(centi.surface, mx, my);
+            centi.surface = wrapped.surface;
+            mx = wrapped.x; my = wrapped.y;
+
+            // move body: insert new head, pop tail
+            centi.segments.unshift({ x: mx, y: my });
+            centi.segments.pop();
+
+            // Interact with mushrooms: trampling creates "fragmentation" by downgrading
+            const c = farm[centi.surface][my][mx];
+            if (c.type === 1 || c.type === 2) {
+              // Smash through small growth (Spores/Seeds)
+              c.type = 0; c.stage = 0; c.t = 0;
+            } else if (c.type === 3) {
+              if (rand() < 0.55) {
+                // knock it back a stage (or spore it)
+                if (c.stage > 1) c.stage--;
+                else { c.type = 1; c.stage = 0; c.t = 0; }
+              }
+            } else if (c.type === 5) {
+              // Consume Acid -> Grow!
+              c.type = 0;
+              centi.segments.push({ x: mx, y: my }); // grow tail immediately logic-wise?
+              // Actually push to segments list?
+              // The logic above pops tail. If we want to grow, we should un-pop or push a new one.
+              // Easier: Just add a dummy tail that will trail
+              const tail = centi.segments[centi.segments.length - 1];
+              centi.segments.push({ x: tail.x, y: tail.y });
+              beep(300, 0.05, 0.05); // Yum
+              beep(300, 0.05, 0.05); // Yum
+            }
+
+            // Eat Pyramids?
+            for (let j = pyramids.length - 1; j >= 0; j--) {
+              const p = pyramids[j];
+              if (p.surface === centi.surface && p.x === mx && p.y === my) {
+                // EAT
+                p.size--;
+                centi.segments.push({ x: mx, y: my }); // Grow
+                if (p.size <= 0) {
+                  pyramids.splice(j, 1);
+                }
+                beep(400, 0.1, 0.1); // Crunch
+                break;
+              }
+            }
+
+            // Aimed Acid Missile
+            if (tick % 20 === 0) {
+              // aim at player x (clamped speed)
+              const pdx = player.x - mx;
+              // Calculate slope to player logic
+              // Simple approximation: if player is to right, drift right.
+              // Since shots only update Y primary, let's store dx as property
+              let aimDx = Math.sign(pdx);
+              // Only weak seeking
+              if (Math.abs(pdx) > 10) aimDx = Math.sign(pdx) * 0.5;
+              else if (Math.abs(pdx) > 0) aimDx = Math.sign(pdx) * 0.2;
+              else aimDx = 0;
+
+              enemyShots.push({
+                surface: centi.surface,
+                x: mx, // floating point x
+                y: my,
+                dy: (centi.surface === 0) ? +TORPEDO_SPEED : -TORPEDO_SPEED,
+                dx: aimDx // lateral drift
+              });
+            }
+
+            // Edge collision with player
+            // Edge collision with player = SPLIT
+            const edgeY = (centi.surface === 0) ? (H - 1) : 0;
+            if (centi.spawnGrace <= 0 && my === edgeY && Math.abs(mx - player.x) <= 1) {
+              damagePlayer(12);
+
+              // Remove parent
+              const currentSpeed = centi.stepMax || CENTI_STEP_TICKS;
+              centipedes.splice(k, 1);
+
+              // Split into two faster ones
+              // Make them 20% faster (multiplier 0.8 on ticks)
+              // Minimum 1 tick
+              const newSpeed = Math.max(1, Math.floor(currentSpeed * 0.8));
+              // Split In-Situ (At impact point) - FORCE SPAWN (ignore cap)
+              spawnCentipede({ surface: centi.surface, x: mx, y: my, speed: newSpeed, ignoreCap: true });
+              spawnCentipede({ surface: centi.surface, x: mx, y: my, speed: newSpeed, ignoreCap: true });
+
+              beep(120, 0.2, 0.1); // Breach sound
+            }
+          }
+        }
+
+        // Update enemy shots (Acid Missiles)
+        for (let i = enemyShots.length - 1; i >= 0; i--) {
+          const e = enemyShots[i];
+          e.y += e.dy;
+          if (e.dx) e.x += e.dx; // lateral drift
+
+          const ix = Math.round(e.x); // integer x for grid
+          // Wrap X
+          if (e.x < 0) e.x += W;
+          if (e.x >= W) e.x -= W;
+
+          const gridX = Math.round(e.x) % W;
+
+          // Leave Acid Trail
+          if (inBounds(gridX, e.y)) {
+            const c = farm[e.surface][e.y][gridX];
+
+            // Check Tractor Hit (Friendly Fire / Acid Damage)
+            for (let k = tractors.length - 1; k >= 0; k--) {
+              const t = tractors[k];
+              if (t.surface === e.surface && t.x === gridX && t.y === e.y) {
+                tractors.splice(k, 1);
+                beep(150, 0.1, 0.1);
+                // Missile consumed? logic says yes usually
+                enemyShots.splice(i, 1);
+                return; // next shot
+              }
+            }
+
+            // Acid overwrites everything except burst/acid
+            if (c.type !== 4 && c.type !== 5) {
+              c.type = 5; // Acid
+              c.stage = 0;
+              c.t = 0;
+            }
+          }
+
+          // If reaches edge row, check hit
+          if (e.surface === 0 && e.y >= H - 1) {
+            if (Math.abs(gridX - player.x) <= 2) {
+              damagePlayer(10);
+              beep(140, 0.06, 0.05);
+            }
+            enemyShots.splice(i, 1);
+            continue;
+          }
+          if (e.surface === 1 && e.y <= 0) {
+            if (Math.abs(gridX - player.x) <= 2) {
+              damagePlayer(10);
+              beep(140, 0.06, 0.05);
+            }
+            enemyShots.splice(i, 1);
+            continue;
+          }
+
+          // NO grow boost anymore; plain destruction
+
+          // off field
+          if (e.y < 0 || e.y >= H) {
+            enemyShots.splice(i, 1);
+          }
+        }
+
+        // Update Tractors (The Remediation Team)
+        for (let i = tractors.length - 1; i >= 0; i--) {
+          const t = tractors[i];
+          t.t++; // age
+
+          // If currently cleaning (working on the soil)
+          if (t.cleaningTimer > 0) {
+            t.cleaningTimer--;
+            if (t.cleaningTimer <= 0) {
+              // Done cleaning!
+              if (inBounds(t.x, t.y)) {
+                const c = farm[t.surface][t.y][t.x];
+                if (c.type === 5) {
+                  c.type = 0; // Cleaned!
+                  player.score += 5;
+                }
+              }
+              t.target = null; // Resume search
+            }
+            continue; // Don't move while cleaning
+          }
+
+          // Search for acid if no target or target clean
+          let needsTarget = true;
+          if (t.target) {
+            const c = farm[t.surface][t.target.y][t.target.x];
+            if (c.type === 5) needsTarget = false;
+          }
+
+          if (needsTarget) {
+            // Find nearest acid
+            let bestDist = 9999;
+            let best = null;
+            for (let y = 0; y < H; y++) {
+              for (let x = 0; x < W; x++) {
+                if (farm[t.surface][y][x].type === 5) {
+                  const dist = Math.abs(x - t.x) + Math.abs(y - t.y); // Manhattan
+                  if (dist < bestDist) { bestDist = dist; best = { x, y }; }
+                }
+              }
+            }
+            t.target = best;
+          }
+
+          if (t.target) {
+            // Move towards target
+            const dx = Math.sign(t.target.x - t.x);
+            const dy = Math.sign(t.target.y - t.y);
+
+            // Move every few ticks (tractors are slow but steady)
+            if (t.t % 4 === 0) {
+              if (dx !== 0) t.x = (t.x + dx + W) % W; // x wrap
+              else if (dy !== 0) t.y += dy;
+            }
+
+            // If arrived on acid, start cleaning
+            if (t.x === t.target.x && t.y === t.target.y) {
+              const c = farm[t.surface][t.y][t.x];
+              if (c.type === 5) {
+                t.cleaningTimer = 15; // Start working (blinking)
+              }
+            }
+          } else {
+            // IDLE / Roam?
+            // Maybe disappear if job done?
+            if (t.t > 300) tractors.splice(i, 1);
+          }
+        }
+
+        // Clamp
+        player.energy = clamp(player.energy, 0, ENERGY_MAX);
+        player.shield = clamp(player.shield, 0, SHIELD_MAX);
+
+        // Win-ish progression bar: "farm stability" (lower fragmentation)
+        // For now it's purely informational.
+      }
+
+      // ---------------------------
+      // RENDER
+      // ---------------------------
+      function render() {
+        const density = countFarmDensity();
+
+        // A fake "stability / defrag" metric:
+        // High density is good up to a point; too low = starving, too high = explosive chaos.
+        const stability = clamp(100 - Math.abs(density - 55) * 2, 0, 100);
+        const bar = energyBar(stability, 12);
+
+        const podsCharged = player.pods.filter(v => v > 0).length;
+        const podsBar = "[" + player.pods.map(v => (v >= 66 ? "#" : v >= 33 ? "+" : v > 0 ? "." : "-")).join("") + "]";
+
+        const shieldTag = shieldColorTag();
+        const hud =
+          `STABILITY ${bar} ${String(stability).padStart(3, " ")}%   ` +
+          `ENERGY ${String(Math.floor(player.energy)).padStart(2, "0")}   ` +
+          `SHIELD ${shieldTag}${String(Math.floor(player.shield)).padStart(3, " ")}%   ` +
+          `STABILITY ${bar} ${String(stability).padStart(3, " ")}%   ` +
+          `ENERGY ${String(Math.floor(player.energy)).padStart(2, "0")}   ` +
+          `SHIELD ${shieldTag}${String(Math.floor(player.shield)).padStart(3, " ")}%   ` +
+          `BAY ${podsBar}   ` +
+          `PODS ${player.podsThisLevel}/${getPodsRequired(player.level)}   ` +
+          `SCORE ${String(player.score).padStart(6, "0")}   ` +
+          `SURFACE ${player.aimSurface === 0 ? "UP" : "DN"}\n`;
+
+        const sepLabel = MOBIUS_MIRROR_Y_ON_WRAP
+          ? "MÖBIUS EDGE  (wrap L/R flips surface + mirrors Y)"
+          : "MÖBIUS EDGE  (wrap L/R flips surface)";
+
+        // Build two surfaces as char grids
+        const topLines = renderSurface(0, /*label*/"TOP SURFACE");
+        const botLines = renderSurface(1, /*label*/"BOTTOM SURFACE");
+
+        // Separator line with train
+        const edge = new Array(W).fill(TRAIN_EDGE);
+
+        // Dynamic train color: Bright orange (hue 30) that dims as shield drops
+        const shieldPct = clamp(player.shield, 0, 100) / 100;
+        const lightness = 20 + (shieldPct * 40);
+        const trainColor = `hsl(30, 100%, ${lightness}%)`;
+        const openSpan = `<span style="color:${trainColor}">`;
+        const closeSpan = `</span>`;
+
+        // place train body centered at player.x
+        const half = Math.floor(TRAIN_BODY.length / 2);
+        for (let i = 0; i < TRAIN_BODY.length; i++) {
+          const x = (player.x - half + i + W) % W;
+          edge[x] = openSpan + TRAIN_BODY[i] + closeSpan;
+        }
+        // turret marker slightly above the train center in the edge line
+        const turretChar = (player.aimSurface === 0) ? TURRET_UP : TURRET_DN;
+        edge[player.x] = openSpan + turretChar + closeSpan;
+
+        const edgeLine = edge.join("");
+
+        // Messages
+        let msg = "";
+        if (paused) msg = "\n[PAUSED] ";
+        if (gameOver) msg = `\n<span class="bad">[ DEFEAT ]</span> <span class="dim">Signal Lost.</span>   <span class="kbd">[ R Restart ]</span>\n`;
+        if (levelWaiting) msg = `\n<span class="win">[ MISSION ${player.level} COMPLETE ]</span> <span class="dim">System Defended.</span>   <span class="kbd">[ G ] Go</span>\n`;
+
+        const text =
+          hud +
+          `┌ ${" ".repeat(W - 2)}┐\n` +
+          topLines.join("\n") + "\n" +
+          `├${"─".repeat(W)}┤ ${sepLabel}\n` +
+          edgeLine + "\n" +
+          `├${"─".repeat(W)}┤\n` +
+          botLines.join("\n") + "\n" +
+          `└ ${" ".repeat(W - 2)}┘` +
+          msg +
+          "\n" +
+          "Legend: " +
+          `${EMPTY}=empty  ${SPORE}=spore  ${SEED}=seed  ${MUSH[1]}/${MUSH[2]}/${MUSH[3]}=mushroom  ` +
+          `${CENTI_HEAD}${CENTI_SEG}=centipede  ${PYRAMID}=pyramid  ` +
+          `shots=|  enemy torpedoes=:  RemTractor=Enter\n`;
+
+        screenEl.innerHTML = text;
+      }
+
+      function renderSurface(surface, label) {
+        // Create overlay buffer from farm
+        const buf = new Array(H);
+        const colors = new Array(H);  // track color for each cell
+        for (let y = 0; y < H; y++) {
+          buf[y] = new Array(W);
+          colors[y] = new Array(W);
+          for (let x = 0; x < W; x++) {
+            buf[y][x] = cellChar(farm[surface][y][x]);
+            // Mark mushrooms with red
+            if (farm[surface][y][x].type === 3) colors[y][x] = 'mush';
+            if (farm[surface][y][x].type === 5) colors[y][x] = 'acid';
+          }
+        }
+
+        // Overlay enemies
+        // Removed old pyramid rendering
+        // for (const p of pyramids) {
+        //   if (p.surface !== surface) continue;
+        //   if (inBounds(p.x, p.y)) buf[p.y][p.x] = PYRAMID;
+        // }
+        // Overlay centipedes
+        for (const centi of centipedes) {
+          if (centi.surface !== surface) continue;
+          // draw segments (head first)
+          for (let i = centi.segments.length - 1; i >= 0; i--) {
+            const s = centi.segments[i];
+            if (!inBounds(s.x, s.y)) continue;
+            buf[s.y][s.x] = (i === 0) ? CENTI_HEAD : CENTI_SEG;
+            colors[s.y][s.x] = 'centi';  // Mark centipede with yellow
+          }
+        }
+
+        // Overlay shots
+        for (const sh of shots) {
+          if (sh.surface !== surface) continue;
+          if (inBounds(sh.x, sh.y)) {
+            buf[sh.y][sh.x] = "|";
+            colors[sh.y][sh.x] = "strobe";
+          }
+        }
+        for (const es of enemyShots) {
+          if (es.surface !== surface) continue;
+          if (inBounds(es.x, es.y)) {
+            buf[es.y][Math.round(es.x) % W] = ":";
+            colors[es.y][Math.round(es.x) % W] = 'strobe';
+          }
+        }
+        // Overlay tractors
+        for (const t of tractors) {
+          if (t.surface !== surface) continue;
+          if (inBounds(t.x, t.y)) {
+            buf[t.y][t.x] = TRACTOR_GLYPH;
+            colors[t.y][t.x] = (t.cleaningTimer > 0) ? 'tractor-working' : 'tractor';
+          }
+        }
+        // Overlay pyramids (new rendering)
+        for (const p of pyramids) {
+          if (p.surface !== surface) continue;
+          if (inBounds(p.x, p.y)) {
+            buf[p.y][p.x] = "▲";
+            colors[p.y][p.x] = "pyramid";
+          }
+        }
+
+        // Compose lines with borders
+        const lines = [];
+        // header line inside box
+        lines.push(`│${label.padEnd(W, " ")}│`);
+        for (let y = 0; y < H - 1; y++) {
+          let line = "│";
+          for (let x = 0; x < W; x++) {
+            const char = buf[y][x];
+            const color = colors[y][x];
+            const lit = isLit(surface, x, y);
+
+            let cellHTML = "";
+            if (color) {
+              cellHTML = `<span class="${color}">${char}</span>`;
+            } else {
+              cellHTML = char;
+            }
+
+            if (!lit) {
+              line += `<span class="night">${cellHTML}</span>`;
+            } else {
+              line += cellHTML;
+            }
+          }
+          line += "│";
+          lines.push(line);
+        }
+        // last row: keep it normal; edge row is where enemies can collide, still shown
+        let lastLine = "│";
+        for (let x = 0; x < W; x++) {
+          const char = buf[H - 1][x];
+          const color = colors[H - 1][x];
+          if (color) {
+            lastLine += `<span class="${color}">${char}</span>`;
+          } else {
+            lastLine += char;
+          }
+        }
+        lastLine += "│";
+        lines.push(lastLine);
+        return lines;
+      }
+
+      // ---------------------------
+      // MAIN LOOP
+      // ---------------------------
+      try {
+        reset();
+
+        let acc = 0;
+        let last = performance.now();
+        const step = 1000 / FPS;
+
+        function frame(now) {
+          try {
+            const dt = now - last;
+            last = now;
+            acc += dt;
+
+            while (acc >= step) {
+              update();
+              acc -= step;
+            }
+            render();
+            requestAnimationFrame(frame);
+          } catch (e) {
+            document.getElementById("screen").innerHTML = `<span class="bad">RUNTIME ERROR: ${e.message}</span>`;
+            console.error(e);
+          }
+        }
+        requestAnimationFrame(frame);
+      } catch (e) {
+        document.getElementById("screen").innerHTML = `<span class="bad">INIT ERROR: ${e.message}</span>`;
+        console.error(e);
+      }
+
+    })();
+  </script>
+</body>
+
+</html>
