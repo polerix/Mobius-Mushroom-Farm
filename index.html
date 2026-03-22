@@ -226,7 +226,7 @@
 <!-- ══ FULLSCREEN BUTTON ════════════════════════════════════ -->
 <g id="g-fullscreen-btn" style="cursor:pointer">
   <rect x="757" y="517" width="38" height="20" rx="3" fill="rgba(0,0,0,0.75)" stroke="#334433" stroke-width="1"/>
-  <text x="776" y="531" text-anchor="middle" font-family="monospace" font-size="13" fill="#558855">⛶</text>
+  <text id="game-fs-icon" x="776" y="531" text-anchor="middle" font-family="monospace" font-size="13" fill="#558855">⛶</text>
 </g>
 
 <!-- ══ START / HIGH-SCORE SCREEN ═══════════════════════════ -->
@@ -890,19 +890,18 @@ function toggleFullscreen() {
     if(exit) exit.call(document);
   }
 }
-$('g-fullscreen-btn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
-$('g-fullscreen-btn').addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(); });
-$('g-overlay-fs-btn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
-$('g-overlay-fs-btn').addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(); });
+function bindFsBtn(id) {
+  $(id).addEventListener('click',    e => { e.stopPropagation(); toggleFullscreen(); });
+  $(id).addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(); });
+}
+bindFsBtn('g-fullscreen-btn');
+bindFsBtn('g-overlay-fs-btn');
 
 // Update fullscreen icon to reflect state (⛶ = expand, ⊡ = contract)
 function onFullscreenChange() {
-  const full = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  const icon = full ? '⊡' : '⛶';
-  const txt = $('g-fullscreen-btn').querySelector('text');
-  if(txt) txt.textContent = icon;
-  const otxt = $('overlay-fs-icon');
-  if(otxt) otxt.textContent = icon;
+  const icon = !!(document.fullscreenElement || document.webkitFullscreenElement) ? '⊡' : '⛶';
+  $('game-fs-icon').textContent = icon;
+  $('overlay-fs-icon').textContent = icon;
 }
 document.addEventListener('fullscreenchange', onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -1488,18 +1487,15 @@ function renderFarm() {
         const idx=y*GRID_W+x;
         const c=farm[s][y][x];
 
-        // --- cell should be invisible ---
         if(c.type===EMPTY||c.type===SPORE){
           if(cel[idx]){ cel[idx].remove(); cel[idx]=null; cky[idx]=-1; }
           continue;
         }
 
-        // --- cell is visible: check if anything changed ---
         const lit=isSunlit(s,x,y,tick);
         const key=c.type*12+c.stage*2+(lit?1:0);
-        if(cky[idx]===key) continue; // unchanged — skip entirely
+        if(cky[idx]===key) continue;
 
-        // --- build replacement sprite ---
         let sp;
         switch(c.type){
           case SEED:  sp=makeSeed(); break;
@@ -1512,7 +1508,6 @@ function renderFarm() {
         const [sx,sy]=toSVG(s,x,y);
         place(sp,sx,sy);
 
-        // swap into DOM
         if(cel[idx]) lg.replaceChild(sp,cel[idx]);
         else         lg.appendChild(sp);
         cel[idx]=sp; cky[idx]=key;
@@ -1724,8 +1719,6 @@ function frame(now){
   acc+=dt;
   let ticked=false;
   while(acc>=STEP){update();acc-=STEP;ticked=true;}
-  // Skip DOM work entirely when game state hasn't changed —
-  // CSS animations (glows, eye colours) keep running regardless.
   if(ticked) render();
   requestAnimationFrame(frame);
 }
