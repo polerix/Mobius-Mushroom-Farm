@@ -406,6 +406,12 @@
   <!-- Start button -->
   <rect id="btn-start" x="260" y="462" width="280" height="40" rx="6"
         fill="transparent" style="cursor:pointer"/>
+
+  <!-- Fullscreen button (mirrors the in-game one) -->
+  <g id="g-overlay-fs-btn" style="cursor:pointer">
+    <rect x="757" y="517" width="38" height="20" rx="3" fill="rgba(0,0,0,0.75)" stroke="#334433" stroke-width="1"/>
+    <text id="overlay-fs-icon" x="776" y="531" text-anchor="middle" font-family="monospace" font-size="13" fill="#558855">⛶</text>
+  </g>
 </g>
 
 </svg>
@@ -886,12 +892,17 @@ function toggleFullscreen() {
 }
 $('g-fullscreen-btn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
 $('g-fullscreen-btn').addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(); });
+$('g-overlay-fs-btn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
+$('g-overlay-fs-btn').addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(); });
 
 // Update fullscreen icon to reflect state (⛶ = expand, ⊡ = contract)
 function onFullscreenChange() {
   const full = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const icon = full ? '⊡' : '⛶';
   const txt = $('g-fullscreen-btn').querySelector('text');
-  if(txt) txt.textContent = full ? '⊡' : '⛶';
+  if(txt) txt.textContent = icon;
+  const otxt = $('overlay-fs-icon');
+  if(otxt) otxt.textContent = icon;
 }
 document.addEventListener('fullscreenchange', onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
