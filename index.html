@@ -1666,6 +1666,7 @@ function renderHUD() {
 }
 
 function render() {
+  if(!running) return; // cellEl not yet initialised before startGame()
   renderFarm();
   renderAgents();
   renderBullets();
