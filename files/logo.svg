@@ -1,0 +1,16 @@
+<!-- logo.svg  viewBox="0 0 400 60"
+     Standalone game logo. Used on title screen / marketing. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60">
+  <defs>
+    <filter id="lg" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Shadow -->
+  <text x="203" y="35" text-anchor="middle" font-family="monospace" font-size="28" font-weight="bold" fill="#001a00" letter-spacing="4">MÖBIUS</text>
+  <text x="203" y="54" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#001a00" letter-spacing="5">MUSHROOM FARM</text>
+  <!-- Main -->
+  <text x="200" y="33" text-anchor="middle" font-family="monospace" font-size="28" font-weight="bold" fill="#00ff88" letter-spacing="4" filter="url(#lg)">MÖBIUS</text>
+  <text x="200" y="52" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#00dd66" letter-spacing="5">MUSHROOM FARM</text>
+</svg>
