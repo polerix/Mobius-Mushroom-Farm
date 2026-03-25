@@ -453,16 +453,16 @@ function add(p,...kids){kids.forEach(k=>p.appendChild(k));return p;}
 //  EXTERNAL SVG ASSETS
 // ════════════════════════════════════════════════════════════
 const ASSET_DEFS={
-  'train':          {w:145, h:48, ox:-73, oy:-24},
-  'cannon':         {w:18,  h:42, ox: -9, oy:-42},
-  'centipede-head': {w:49,  h:61, ox:-25, oy:-31},
-  'centipede-seg':  {w:26,  h:32, ox:-13, oy:-16},
-  'pyramid':        {w:35,  h:40, ox:-17, oy:-27},
-  'tractor':        {w:32,  h:28, ox:-16, oy:-14},
-  'turret':         {w:18,  h:42, ox: -9, oy:-36},
-  'drone':          {w:37,  h:16, ox:-19, oy: -8},
-  'mushroom-day':   {w:32,  h:41, ox:-16, oy:-36},
-  'mushroom-night': {w:32,  h:41, ox:-16, oy:-36},
+  'train': {w:102,  h:34, ox:-51, oy:-17},
+  'cannon': {w:13,  h:29, ox:-6, oy:-29},
+  'centipede-head': {w:34,  h:43, ox:-18, oy:-22},
+  'centipede-seg': {w:18,  h:22, ox:-9, oy:-11},
+  'pyramid': {w:24,  h:28, ox:-12, oy:-19},
+  'tractor': {w:22,  h:20, ox:-11, oy:-10},
+  'turret': {w:13,  h:29, ox:-6, oy:-25},
+  'drone': {w:26,  h:11, ox:-13, oy:-6},
+  'mushroom-day': {w:22,  h:29, ox:-11, oy:-25},
+  'mushroom-night': {w:22,  h:29, ox:-11, oy:-25},
 };
 const loadedAssets={};
 function preloadAssets(){
@@ -578,7 +578,11 @@ function makeSpore(){return add(G(),circ(0,0,2.2,'#335522',{opacity:'.75'}));}
 function makeSeed(){return add(G(),circ(0,0,3.8,'#446622'),circ(0,0,2.2,'#88bb33',{opacity:'.8'}));}
 function makeMush(stage,lit){
   const img=assetImage(lit?'mushroom-day':'mushroom-night');
-  if(img)return add(G(),img);
+  if(img){
+    const sc = stage===3 ? 1.2 : stage===2 ? 0.85 : 0.6;
+    img.setAttribute('transform', `scale(${sc})`);
+    return add(G(),img);
+  }
   const s=3+stage*2.5;
   if(!lit)return add(G({filter:'url(#f-glow)'}),
     rect(-2,0,4,s*.65,1,'#253038'),ell(0,-s*.45,s,s*.70,'#0a3f52'),ell(0,-s*.62,s*.72,s*.50,'#106860'),
@@ -1080,12 +1084,20 @@ function startMobiusTransition(){
 function updateFarm(){
   for(let s=0;s<2;s++)for(let y=0;y<GRID_H;y++)for(let x=0;x<GRID_W;x++){
     const c=farm[s][y][x],lit=isSunlit(s,x,y,tick),frozen=!lit&&rand()>.05;
-    if(c.type===SPORE){if(!frozen)c.t++;if(c.t>=SPORE_TO_SEED){c.type=SEED;c.t=0;}}
-    else if(c.type===SEED){if(!frozen)c.t++;if(c.t>=SEED_TO_MUSH){c.type=MUSH;c.stage=1;c.t=0;}}
+    if(c.type===SPORE){if(lit||rand()>.5)c.t++;if(c.t>=SPORE_TO_SEED){c.type=SEED;c.t=0;}}
+    else if(c.type===SEED){if(lit)c.t++;if(c.t>=SEED_TO_MUSH){c.type=MUSH;c.stage=1;c.t=0;}}
     else if(c.type===MUSH){
-      if(!frozen)c.t++;player.energy=clamp(player.energy+.004*c.stage,0,ENERGY_MAX);
-      if(c.t>=AUTO_BURST)burstMush(s,x,y);
-      else if(!frozen&&c.stage<3&&c.t%120===0&&rand()<.35)c.stage++;
+      if(lit){
+        c.t++; player.energy=clamp(player.energy+.004*c.stage,0,ENERGY_MAX);
+        if(c.t>=AUTO_BURST) burstMush(s,x,y);
+        else if(c.stage<3 && c.t%180===0 && rand()<.4) c.stage++;
+      } else {
+        c.t++;
+        if(c.t%240===0 && rand()<.6) { // shrink at night
+          if(c.stage>1) c.stage--;
+          else { c.type=SEED; c.t=0; }
+        }
+      }
     }else if(c.type===BURST){c.t--;if(c.t<=0){c.type=EMPTY;c.stage=0;c.t=0;}}
   }
 }
