@@ -200,10 +200,9 @@
 <!-- end g-field -->
 
 <!-- ══ HUD BOTTOM (outside g-field) ════════════════════════ -->
-<rect x="0" y="516" width="800" height="28" fill="rgba(0,0,0,.97)"/>
-<text id="hud-controls" x="400" y="531" text-anchor="middle" font-family="monospace" font-size="8"
-      fill="#2a2a2a" letter-spacing=".5">
-  ◄ ► MOVE  ·  SPACE FLIP  ·  ENTER FIRE  ·  R TRACTOR  ·  E DRONE  ·  P PAUSE  ·  MOUSE: move/wheel/L/R
+<rect x="0" y="516" width="800" height="24" fill="rgba(0,0,0,.95)"/>
+<text id="hud-controls" x="370" y="530" text-anchor="middle" font-family="monospace" font-size="8" fill="#2a2a2a" letter-spacing=".5">
+  ◄ ► MOVE  ·  SPACE FLIP  ·  CLICK/ENTER FIRE  ·  R TRACTOR  ·  P PAUSE  ·  SWIPE←→ MOVE  ·  SWIPE↑↓ TRACTOR
 </text>
 
 <!-- ══ OVERLAYS (outside g-field, always on top) ════════════ -->
@@ -250,6 +249,12 @@
   <circle cx="743" cy="420" r="28" fill="#001a2a" stroke="#0066aa" stroke-width="2" opacity=".9"/>
   <text x="743" y="414" text-anchor="middle" font-family="monospace" font-size="14" fill="#44aaff">✈</text>
   <text x="743" y="428" text-anchor="middle" font-family="monospace" font-size="7" font-weight="bold" fill="#2288cc">DRONE</text>
+</g>
+
+<!-- ══ FULLSCREEN BUTTON ════════════════════════════════════ -->
+<g id="g-fullscreen-btn" style="cursor:pointer">
+  <rect x="757" y="517" width="38" height="20" rx="3" fill="rgba(0,0,0,0.75)" stroke="#334433" stroke-width="1"/>
+  <text x="776" y="531" text-anchor="middle" font-family="monospace" font-size="13" fill="#558855">⛶</text>
 </g>
 
 <!-- ══ START SCREEN ══════════════════════════════════════════ -->
@@ -453,7 +458,7 @@ function noise(dur,vol=0.15,freq=600){
   try{
     const c=getACtx(),n=c.sampleRate*dur;
     const buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
-    for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+    for(let i=0;i<n;d[i++]=Math.random()*2-1);
     const src=c.createBufferSource(),flt=c.createBiquadFilter(),g=c.createGain();
     src.buffer=buf;flt.type='bandpass';flt.frequency.value=freq;
     g.gain.setValueAtTime(vol,c.currentTime);
@@ -731,9 +736,19 @@ svgEl.addEventListener('wheel',e=>{
   if(!running||gameOver||paused)return;
   player.aimFace=e.deltaY>0?1:0;
 },{passive:false});
-svgEl.addEventListener('click',e=>{
-  if(!running||gameOver||paused)return;
-  try{if(!audioCtx)getACtx();}catch{}
+svgEl.addEventListener('click', e => {
+  if(!running || gameOver || paused) return;
+  try{ if(!audioCtx) getACtx(); } catch{}
+  const r = svgEl.getBoundingClientRect();
+  const clickX = (e.clientX - r.left) / r.width  * SVG_W;
+  const clickY = (e.clientY - r.top)  / r.height * SVG_H;
+  // Set aim face from click Y zone
+  if(clickY < TRACK_Y)              player.aimFace = 0;
+  else if(clickY > TRACK_Y+TRACK_PX) player.aimFace = 1;
+  // Move one cell toward click X then fire
+  const clickGX = clamp(Math.floor(clickX / CW), 0, GRID_W-1);
+  if(clickGX < player.x)      player.x = Math.max(0, player.x - 1);
+  else if(clickGX > player.x) player.x = Math.min(GRID_W-1, player.x + 1);
   tryFire();
 });
 svgEl.addEventListener('contextmenu',e=>{

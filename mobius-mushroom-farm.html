@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>MÖBIUS MUSHROOM FARM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; touch-action: none; }
+  #game {
+    width: 100vw; height: 100svh; display: block;
+    max-width: 100vw; max-height: 100svh;
+  }
+  #overlay {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.85);
+    font-family: 'Courier New', monospace;
+    z-index: 100;
+  }
+  #start-card {
+    border: 2px solid #0f0;
+    padding: 32px 40px;
+    text-align: center;
+    max-width: 340px;
+    background: #000;
+    box-shadow: 0 0 40px rgba(0,255,0,0.2);
+  }
+  #start-card h1 {
+    font-size: 22px; color: #ffff00; letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  #start-card .sub {
+    font-size: 11px; color: #0f0; letter-spacing: 6px;
+    margin-bottom: 24px;
+  }
+  #start-card .rules { font-size: 12px; color: #888; line-height: 1.9; text-align: left; }
+  #start-card .rules span { color: #0ff; }
+  #start-btn {
+    margin-top: 24px; width: 100%;
+    background: #0f0; color: #000;
+    border: none; padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px; font-weight: bold;
+    letter-spacing: 2px; cursor: pointer;
+  }
+  #start-btn:hover { background: #0f0; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+  .ctrl { font-size: 11px; color: #555; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div id="start-card">
+    <h1>MÖBIUS</h1>
+    <div class="sub">MUSHROOM FARM</div>
+    <div class="rules">
+      <span>SPIDERS</span> toxify the soil — stop them<br>
+      <span>TRACTORS</span> auto-repair toxic ground<br>
+      <span>DAY MUSHROOMS</span> generate solar power<br>
+      <span>NIGHT MUSHROOMS</span> glow on the dark face<br>
+      The field is a <span>Möbius strip</span> — cross the<br>
+      train line and emerge mirrored on the other side
+    </div>
+    <button id="start-btn">ENGAGE SYSTEMS</button>
+    <div class="ctrl">ARROWS / WASD · SPACE to fire · or TILT + TAP</div>
+  </div>
+</div>
+
+<svg id="game" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+<defs>
+
+  <!-- ── FILTERS ── -->
+  <filter id="f-glow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="f-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+    <feGaussianBlur stdDeviation="6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="f-turret-glow" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="4" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <!-- ── CLIP REGIONS ── -->
+  <clipPath id="clip-top"><rect x="0" y="30" width="800" height="256"/></clipPath>
+  <clipPath id="clip-bot"><rect x="0" y="316" width="800" height="256"/></clipPath>
+
+  <!-- ── SPRITES ── -->
+
+  <!-- Mushroom: day (sunlit, green, power-generating) -->
+  <symbol id="s-mush-day" viewBox="-9 -14 18 16">
+    <rect x="-2.5" y="0" width="5" height="6" rx="1" fill="#7a5010"/>
+    <ellipse cx="0" cy="-2" rx="9" ry="8" fill="#3a8020"/>
+    <ellipse cx="0" cy="-4" rx="7" ry="5" fill="#50a030"/>
+    <circle cx="-4" cy="-5" r="2" fill="#fff" opacity="0.5"/>
+    <circle cx="2.5" cy="-2" r="1.5" fill="#fff" opacity="0.4"/>
+    <circle cx="-1" cy="-9" r="1.2" fill="#fff" opacity="0.35"/>
+  </symbol>
+
+  <!-- Mushroom: night (bioluminescent) -->
+  <symbol id="s-mush-night" viewBox="-9 -14 18 16">
+    <rect x="-2.5" y="0" width="5" height="6" rx="1" fill="#304040"/>
+    <ellipse cx="0" cy="-2" rx="9" ry="8" fill="#105560"/>
+    <ellipse cx="0" cy="-4" rx="7" ry="5" fill="#1a7070"/>
+    <circle cx="-4" cy="-5" r="2" fill="#00ffcc" opacity="0.9"/>
+    <circle cx="2.5" cy="-2" r="1.5" fill="#00ffcc" opacity="0.8"/>
+    <circle cx="-1" cy="-9" r="1.2" fill="#80ffee" opacity="0.85"/>
+    <ellipse cx="0" cy="-2" rx="9" ry="8" fill="none" stroke="#00ffcc" stroke-width="0.5" opacity="0.4"/>
+  </symbol>
+
+  <!-- Mushroom: toxic (spider-poisoned) -->
+  <symbol id="s-mush-toxic" viewBox="-9 -14 18 16">
+    <rect x="-2.5" y="0" width="5" height="6" rx="1" fill="#3a1a00"/>
+    <ellipse cx="0" cy="-2" rx="9" ry="8" fill="#6a1800"/>
+    <ellipse cx="0" cy="-4" rx="7" ry="5" fill="#8a2500"/>
+    <circle cx="-4" cy="-5" r="2" fill="#ff4400" opacity="0.9"/>
+    <circle cx="2.5" cy="-2" r="1.5" fill="#ff6600" opacity="0.8"/>
+    <circle cx="-1" cy="-9" r="1.2" fill="#ff3300" opacity="0.75"/>
+    <!-- Drip -->
+    <ellipse cx="1" cy="4" rx="1" ry="2" fill="#aa3300" opacity="0.6"/>
+  </symbol>
+
+  <!-- Centipede head -->
+  <symbol id="s-centi-head" viewBox="-8 -8 16 16">
+    <circle cx="0" cy="0" r="7" fill="#cc1111"/>
+    <circle cx="0" cy="0" r="5" fill="#ee2222"/>
+    <circle cx="-2.5" cy="-2" r="1.8" fill="#fff"/>
+    <circle cx="2.5" cy="-2" r="1.8" fill="#fff"/>
+    <circle cx="-2.5" cy="-2" r="0.8" fill="#111"/>
+    <circle cx="2.5" cy="-2" r="0.8" fill="#111"/>
+    <!-- Antennae -->
+    <line x1="-3" y1="-5" x2="-6" y2="-9" stroke="#ff6666" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="3" y1="-5" x2="6" y2="-9" stroke="#ff6666" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="-6" cy="-9" r="1" fill="#ff8888"/>
+    <circle cx="6" cy="-9" r="1" fill="#ff8888"/>
+  </symbol>
+
+  <!-- Centipede segment -->
+  <symbol id="s-centi-seg" viewBox="-7 -7 14 14">
+    <circle cx="0" cy="0" r="6" fill="#aa1111"/>
+    <circle cx="0" cy="0" r="4" fill="#cc3333"/>
+    <circle cx="0" cy="0" r="2" fill="#ee5555" opacity="0.6"/>
+    <!-- Legs -->
+    <line x1="-6" y1="-1" x2="-9" y2="-4" stroke="#cc2222" stroke-width="1.2"/>
+    <line x1="-6" y1="2" x2="-9" y2="4" stroke="#cc2222" stroke-width="1.2"/>
+    <line x1="6" y1="-1" x2="9" y2="-4" stroke="#cc2222" stroke-width="1.2"/>
+    <line x1="6" y1="2" x2="9" y2="4" stroke="#cc2222" stroke-width="1.2"/>
+  </symbol>
+
+  <!-- Spider -->
+  <symbol id="s-spider" viewBox="-12 -12 24 24">
+    <ellipse cx="0" cy="3" rx="5" ry="4.5" fill="#8800ee"/>
+    <ellipse cx="0" cy="-4" rx="4" ry="3.5" fill="#6600bb"/>
+    <!-- Eyes -->
+    <circle cx="-2" cy="-5" r="1.3" fill="#ff0000"/>
+    <circle cx="2" cy="-5" r="1.3" fill="#ff0000"/>
+    <circle cx="-2" cy="-5" r="0.5" fill="#ff8888"/>
+    <circle cx="2" cy="-5" r="0.5" fill="#ff8888"/>
+    <!-- Legs (3 per side) -->
+    <line x1="-5" y1="0" x2="-12" y2="-5" stroke="#7700cc" stroke-width="1.5"/>
+    <line x1="-5" y1="2" x2="-12" y2="3" stroke="#7700cc" stroke-width="1.5"/>
+    <line x1="-5" y1="5" x2="-11" y2="9" stroke="#7700cc" stroke-width="1.5"/>
+    <line x1="5" y1="0" x2="12" y2="-5" stroke="#7700cc" stroke-width="1.5"/>
+    <line x1="5" y1="2" x2="12" y2="3" stroke="#7700cc" stroke-width="1.5"/>
+    <line x1="5" y1="5" x2="11" y2="9" stroke="#7700cc" stroke-width="1.5"/>
+    <!-- Fang drips -->
+    <line x1="-1.5" y1="-7" x2="-2" y2="-10" stroke="#aa00ff" stroke-width="1"/>
+    <line x1="1.5" y1="-7" x2="2" y2="-10" stroke="#aa00ff" stroke-width="1"/>
+  </symbol>
+
+  <!-- Tractor -->
+  <symbol id="s-tractor" viewBox="-11 -10 22 18">
+    <rect x="-9" y="-6" width="18" height="12" rx="2" fill="#3a6a00"/>
+    <rect x="-4" y="-10" width="10" height="8" rx="1" fill="#244400"/>
+    <!-- Window -->
+    <rect x="-2" y="-9" width="6" height="5" rx="1" fill="#335500" opacity="0.8"/>
+    <!-- Scoop -->
+    <rect x="-11" y="-3" width="4" height="8" rx="1" fill="#2a4a00"/>
+    <rect x="-12" y="0" width="5" height="3" rx="1" fill="#1a3000"/>
+    <!-- Wheels -->
+    <circle cx="-5" cy="8" r="4" fill="#222"/>
+    <circle cx="5" cy="8" r="4" fill="#222"/>
+    <circle cx="-5" cy="8" r="2" fill="#444"/>
+    <circle cx="5" cy="8" r="2" fill="#444"/>
+    <!-- Exhaust -->
+    <rect x="7" y="-11" width="2.5" height="5" rx="1" fill="#333"/>
+  </symbol>
+
+  <!-- Player ship -->
+  <symbol id="s-player" viewBox="-11 -12 22 22">
+    <!-- Engine nacelles -->
+    <ellipse cx="-7" cy="5" rx="3" ry="6" fill="#006688"/>
+    <ellipse cx="7" cy="5" rx="3" ry="6" fill="#006688"/>
+    <!-- Body -->
+    <polygon points="0,-12 -9,8 0,4 9,8" fill="#00ccdd"/>
+    <!-- Cockpit -->
+    <ellipse cx="0" cy="-3" rx="3.5" ry="5" fill="#80eeff" opacity="0.7"/>
+    <!-- Engine glow -->
+    <ellipse cx="-7" cy="9" rx="2.5" ry="3" fill="#ff7700" opacity="0.8"/>
+    <ellipse cx="7" cy="9" rx="2.5" ry="3" fill="#ff7700" opacity="0.8"/>
+  </symbol>
+
+  <!-- Bullet (player) -->
+  <symbol id="s-bullet" viewBox="-2 -7 4 14">
+    <rect x="-1.5" y="-6" width="3" height="12" rx="1.5" fill="#ffff00"/>
+    <rect x="-0.5" y="-6" width="1" height="4" rx="0.5" fill="#fff"/>
+  </symbol>
+
+  <!-- Bullet (turret) -->
+  <symbol id="s-tbullet" viewBox="-2 -7 4 14">
+    <rect x="-1.5" y="-6" width="3" height="12" rx="1.5" fill="#ff8800"/>
+    <rect x="-0.5" y="-6" width="1" height="4" rx="0.5" fill="#ffcc44"/>
+  </symbol>
+
+</defs>
+
+<!-- ════════════════════ BACKGROUND ════════════════════ -->
+
+<!-- Top face: solid dark base -->
+<rect x="0" y="30" width="800" height="256" fill="#060b03"/>
+<!-- Top face: day zone (upper-left triangle — sunlight) -->
+<polygon points="0,30 800,30 0,286" fill="#18300a" opacity="0.7"/>
+<!-- Top face: subtle amber sun wash in day corner -->
+<polygon points="0,30 400,30 0,200" fill="#3a2000" opacity="0.35"/>
+
+<!-- Bottom face: solid dark base -->
+<rect x="0" y="316" width="800" height="256" fill="#030610"/>
+<!-- Bottom face: day zone (upper-right — Möbius flipped) -->
+<polygon points="800,316 800,572 0,316" fill="#0a1a30" opacity="0.6"/>
+<!-- Night luminescence wash bottom-left -->
+<polygon points="0,316 400,572 0,572" fill="#070020" opacity="0.5"/>
+
+<!-- Stars on both faces -->
+<g id="g-stars" clip-path="url(#clip-top)" opacity="0.5"></g>
+<g id="g-stars-bot" clip-path="url(#clip-bot)" opacity="0.7"></g>
+
+<!-- ════════════════════ ENTITY LAYERS ════════════════════ -->
+<g id="L-mush-top"   clip-path="url(#clip-top)"></g>
+<g id="L-mush-bot"   clip-path="url(#clip-bot)"></g>
+<g id="L-agents-top" clip-path="url(#clip-top)"></g>
+<g id="L-agents-bot" clip-path="url(#clip-bot)"></g>
+<g id="L-bullets-top" clip-path="url(#clip-top)"></g>
+<g id="L-bullets-bot" clip-path="url(#clip-bot)"></g>
+
+<!-- ════════════════════ TRAIN TRACK ════════════════════ -->
+<!-- Sleepers -->
+<g id="g-sleepers"></g>
+<!-- Rails -->
+<rect x="0" y="297" width="800" height="2" fill="#555"/>
+<rect x="0" y="303" width="800" height="2" fill="#555"/>
+<!-- Center glow line -->
+<rect x="0" y="299" width="800" height="3" fill="#333"/>
+
+<!-- Train group (translated along X) -->
+<g id="g-train">
+  <!-- Train body -->
+  <rect x="-38" y="288" width="76" height="24" rx="4" fill="#1a1a1a" stroke="#444" stroke-width="1.5"/>
+  <rect x="-34" y="291" width="18" height="16" rx="2" fill="#112211"/>
+  <rect x="-9" y="291" width="14" height="16" rx="2" fill="#110022"/>
+  <rect x="12" y="291" width="18" height="16" rx="2" fill="#111122"/>
+  <!-- Wheels -->
+  <circle cx="-24" cy="314" r="5" fill="#222" stroke="#555" stroke-width="1"/>
+  <circle cx="24" cy="314" r="5" fill="#222" stroke="#555" stroke-width="1"/>
+  <circle cx="-24" cy="314" r="2.5" fill="#444"/>
+  <circle cx="24" cy="314" r="2.5" fill="#444"/>
+  <!-- Cab light -->
+  <circle cx="-36" cy="296" r="2" fill="#ffff00" opacity="0.8" filter="url(#f-glow)"/>
+
+  <!-- Turret base -->
+  <rect id="turret-base" x="-6" y="286" width="12" height="10" rx="2" fill="#333" stroke="#666" stroke-width="1"/>
+
+  <!-- Turret barrel group — rotates. Points up by default.
+       We manage two: one for top face (fires up), one for bot face (fires down) -->
+  <g id="g-turret-up" transform="rotate(0,0,291)">
+    <rect x="-2" y="262" width="4" height="28" rx="2" fill="#666"/>
+    <rect x="-1" y="262" width="2" height="8" rx="1" fill="#888"/>
+    <!-- Muzzle glow -->
+    <circle cx="0" cy="262" r="3" fill="#ff8800" opacity="0.6" filter="url(#f-glow)"/>
+  </g>
+  <g id="g-turret-down" transform="rotate(0,0,291)">
+    <rect x="-2" y="291" width="4" height="28" rx="2" fill="#666"/>
+    <rect x="-1" y="291" width="2" height="8" rx="1" fill="#888"/>
+    <circle cx="0" cy="319" r="3" fill="#ff8800" opacity="0.6" filter="url(#f-glow)"/>
+  </g>
+</g>
+
+<!-- ════════════════════ PLAYER ════════════════════ -->
+<g id="g-player">
+  <use id="player-sprite" href="#s-player"/>
+  <!-- Engine trail -->
+  <ellipse id="player-trail" cx="0" cy="0" rx="4" ry="0" fill="#ff7700" opacity="0.5"/>
+  <!-- Shield ring -->
+  <circle id="player-shield" cx="0" cy="0" r="16" fill="none" stroke="#00ffff" stroke-width="1" opacity="0.25"/>
+</g>
+
+<!-- ════════════════════ HUD ════════════════════ -->
+<!-- Top bar -->
+<rect x="0" y="0" width="800" height="30" fill="#000" opacity="0.9"/>
+<!-- Bottom bar -->
+<rect x="0" y="572" width="800" height="28" fill="#000" opacity="0.9"/>
+
+<!-- Score -->
+<text id="hud-score" x="8" y="21" fill="#ffff00" font-family="'Courier New',monospace" font-size="15" font-weight="bold">SCORE: 0</text>
+
+<!-- Solar power bar -->
+<text x="240" y="21" fill="#00ff88" font-family="'Courier New',monospace" font-size="11">SOLAR</text>
+<rect x="286" y="9" width="120" height="13" fill="none" stroke="#00ff88" stroke-width="1" rx="2" opacity="0.6"/>
+<rect id="hud-power" x="287" y="10" width="60" height="11" fill="#00ff88" rx="1"/>
+
+<!-- Face labels -->
+<text id="hud-label-top" x="430" y="21" fill="#aa8800" font-family="'Courier New',monospace" font-size="11">◐ SUNWARD FACE</text>
+<text id="hud-label-bot" x="430" y="590" fill="#0088aa" font-family="'Courier New',monospace" font-size="11">◑ NIGHT FACE</text>
+
+<!-- Lives -->
+<text id="hud-lives" x="710" y="21" fill="#ff4444" font-family="'Courier New',monospace" font-size="14">♥ ♥ ♥</text>
+
+<!-- Möbius indicator: small animated strip icon -->
+<text x="610" y="21" fill="#666" font-family="'Courier New',monospace" font-size="11">∞ MÖBIUS</text>
+
+<!-- Tilt readout (debug, hidden by default) -->
+<text id="hud-tilt" x="8" y="590" fill="#333" font-family="'Courier New',monospace" font-size="10" display="none"/>
+
+</svg>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  MÖBIUS MUSHROOM FARM  –  SVG Engine
+// ═══════════════════════════════════════════════════════════
+
+const NS   = 'http://www.w3.org/2000/svg';
+const W    = 800;
+const H    = 600;
+const T1   = 30;   // top face: screen Y start
+const T2   = 286;  // top face: screen Y end
+const B1   = 316;  // bot face: screen Y start
+const B2   = 572;  // bot face: screen Y end
+const FH   = T2 - T1;          // face height in screen px  = 256
+const CY   = 300;               // train track centre line
+
+// Alias
+const $ = id => document.getElementById(id);
+let idGen = 0;
+const uid = () => ++idGen;
+
+// ═══════════════════════════
+//  GAME STATE
+// ═══════════════════════════
+
+let running    = false;
+let score      = 0;
+let lives      = 3;
+let power      = 50;  // solar 0–100
+let tick       = 0;
+
+// Tilt input (normalised –1…+1)
+let tilt = { x: 0, y: 0 };
+
+// Touch / keyboard state
+let keys = {};
+
+const player = {
+  x: W / 2, fy: FH * 0.82,
+  face: 0,   // 0 = top, 1 = bot
+  fireCD: 0, invuln: 0
+};
+
+let mushrooms  = [];
+let centipede  = [];
+let spiders    = [];
+let tractors   = [];
+let bullets    = [];
+
+// Train
+const train = {
+  x: W / 2,
+  spd: 0.6,
+  fireCD: 0
+};
+
+// ═══════════════════════════
+//  SVG HELPERS
+// ═══════════════════════════
+
+function svgEl(tag, attrs = {}) {
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs))
+    el.setAttribute(k, v);
+  return el;
+}
+
+// Face-local Y → screen Y
+function sy(fy, face) {
+  return face === 0 ? T1 + fy : B1 + fy;
+}
+
+// Screen transform string
+function tf(x, sY) { return `translate(${x.toFixed(1)},${sY.toFixed(1)})`; }
+
+// Möbius X mirror
+function mx(x) { return W - x; }
+
+// Euclidean distance
+function d2(ax, ay, bx, by) {
+  const dx = ax - bx, dy = ay - by;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Is position in the day zone?
+// Top face: day = upper-left triangle (fy < FH*(1 - x/W))
+// Bot face: day = upper-right triangle (fy < FH*(x/W)) — Möbius flip
+function inDay(x, fy, face) {
+  return face === 0
+    ? fy < FH * (1 - x / W)
+    : fy < FH * (x / W);
+}
+
+// Layer element
+function layer(type, face) {
+  return $(`L-${type}-${face === 0 ? 'top' : 'bot'}`);
+}
+
+// Move SVG element to correct layer
+function ensureLayer(entity, type) {
+  const target = layer(type, entity.face);
+  if (entity.el.parentNode !== target) target.appendChild(entity.el);
+}
+
+// Remove entity from array and DOM
+function killEntity(arr, i) {
+  const e = arr[i];
+  e.el?.parentNode?.removeChild(e.el);
+  arr.splice(i, 1);
+}
+
+// ═══════════════════════════
+//  INIT
+// ═══════════════════════════
+
+function initStars() {
+  for (const [gId, y1, y2] of [['g-stars', T1, T2], ['g-stars-bot', B1, B2]]) {
+    const g = $(gId);
+    for (let i = 0; i < 45; i++) {
+      const star = svgEl('circle', {
+        cx: Math.random() * W,
+        cy: y1 + Math.random() * (y2 - y1),
+        r:  Math.random() * 1.4 + 0.3,
+        fill: `hsl(${200 + Math.random()*60},60%,${60 + Math.random()*40}%)`,
+        opacity: Math.random() * 0.5 + 0.15
+      });
+      g.appendChild(star);
+    }
+  }
+}
+
+function initSleepers() {
+  const g = $('g-sleepers');
+  for (let x = 0; x < W; x += 20) {
+    g.appendChild(svgEl('rect', {
+      x, y: 295, width: 12, height: 10,
+      fill: '#2a1a00', rx: 1
+    }));
+  }
+}
+
+function spawnMushroom(x, fy, face) {
+  const type = inDay(x, fy, face) ? 'day' : 'night';
+  const g = svgEl('g', {});
+  g.appendChild(svgEl('use', { href: `#s-mush-${type}` }));
+  if (type === 'night') g.setAttribute('filter', 'url(#f-glow)');
+  g.setAttribute('transform', tf(x, sy(fy, face)));
+  layer('mush', face).appendChild(g);
+  mushrooms.push({ id: uid(), x, fy, face, type, health: 3, el: g });
+}
+
+function initMushrooms() {
+  for (let f = 0; f < 2; f++) {
+    for (let i = 0; i < 38; i++) {
+      spawnMushroom(
+        18 + Math.random() * (W - 36),
+        12 + Math.random() * (FH - 24),
+        f
+      );
+    }
+  }
+}
+
+function initCentipede() {
+  const SEGS = 14;
+  for (let i = 0; i < SEGS; i++) {
+    const isHead = i === 0;
+    const g = svgEl('g', {});
+    g.appendChild(svgEl('use', { href: isHead ? '#s-centi-head' : '#s-centi-seg' }));
+    const x = 80 + i * 15, fy = 20;
+    g.setAttribute('transform', tf(x, sy(fy, 0)));
+    layer('agents', 0).appendChild(g);
+    centipede.push({
+      id: uid(), x, fy, face: 0, el: g,
+      isHead, index: i,
+      dx: 1.8, speed: 1.4,
+      prevX: x, prevFy: fy, prevFace: 0
+    });
+  }
+}
+
+function spawnSpider(forceFace) {
+  const face = forceFace !== undefined ? forceFace : Math.round(Math.random());
+  const fromLeft = Math.random() < 0.5;
+  const x = fromLeft ? -12 : W + 12;
+  const fy = 15 + Math.random() * (FH - 30);
+  const g = svgEl('g', { filter: 'url(#f-glow)' });
+  g.appendChild(svgEl('use', { href: '#s-spider' }));
+  g.setAttribute('transform', tf(x, sy(fy, face)));
+  layer('agents', face).appendChild(g);
+  const vx = fromLeft ? 1.2 + Math.random() : -(1.2 + Math.random());
+  const vy = (Math.random() - 0.5) * 1.5;
+  spiders.push({ id: uid(), x, fy, face, el: g, vx, vy });
+}
+
+function spawnTractor(face) {
+  const x = 20 + Math.random() * (W - 40);
+  const fy = FH * 0.4 + Math.random() * (FH * 0.2);
+  const g = svgEl('g', {});
+  g.appendChild(svgEl('use', { href: '#s-tractor' }));
+  g.setAttribute('transform', tf(x, sy(fy, face)));
+  layer('agents', face).appendChild(g);
+  tractors.push({ id: uid(), x, fy, face, el: g, target: null, spd: 0.55 });
+}
+
+function initPlayer() {
+  const g = $('g-player');
+  const sprite  = $('player-sprite');
+  const shield  = $('player-shield');
+  const trail   = $('player-trail');
+  movePlayer(sprite, shield, trail);
+}
+
+function movePlayer(sprite, shield, trail) {
+  const screenY = sy(player.fy, player.face);
+  sprite.setAttribute('x', player.x - 11);
+  sprite.setAttribute('y', screenY - 12);
+  shield.setAttribute('cx', player.x);
+  shield.setAttribute('cy', screenY);
+  trail.setAttribute('cx', player.x);
+  trail.setAttribute('cy', screenY + 10);
+}
+
+// ═══════════════════════════
+//  UPDATE PLAYER
+// ═══════════════════════════
+
+function updatePlayer() {
+  const spd = 4.5;
+  player.x  += tilt.x * spd;
+  player.fy += tilt.y * spd * 0.6;
+
+  player.x  = Math.max(12, Math.min(W - 12, player.x));
+
+  // Möbius boundary crossing — player in bottom 1/4 of face can cross
+  if (player.fy < -2) {
+    player.face = 1 - player.face;
+    player.x    = mx(player.x);
+    player.fy   = FH + player.fy;
+  } else if (player.fy > FH + 2) {
+    player.face = 1 - player.face;
+    player.x    = mx(player.x);
+    player.fy   = player.fy - FH;
+  }
+
+  if (player.fireCD > 0) player.fireCD--;
+  if (player.invuln > 0) player.invuln--;
+
+  // Sprite visibility flicker when invulnerable
+  const sprite = $('player-sprite');
+  sprite.setAttribute('opacity', player.invuln > 0 && (tick % 6 < 3) ? '0.3' : '1');
+
+  movePlayer(sprite, $('player-shield'), $('player-trail'));
+}
+
+// ═══════════════════════════
+//  FIRING
+// ═══════════════════════════
+
+function fireBullet(face, x, fy, dy, owner) {
+  const g = svgEl('g', {});
+  g.appendChild(svgEl('use', { href: owner === 'player' ? '#s-bullet' : '#s-tbullet' }));
+  g.setAttribute('transform', tf(x, sy(fy, face)));
+  layer('bullets', face).appendChild(g);
+  bullets.push({ id: uid(), x, fy, face, dy, owner, el: g });
+}
+
+function playerFire() {
+  if (player.fireCD > 0) return;
+  player.fireCD = 14;
+  fireBullet(player.face, player.x, player.fy - 14, -7, 'player');
+}
+
+function turretFire() {
+  if (train.fireCD > 0) { train.fireCD--; return; }
+  train.fireCD = 55;
+  // Up into top face
+  fireBullet(0, train.x, FH - 8, -6, 'turret');
+  // Down into bot face
+  fireBullet(1, train.x, 8, 6, 'turret');
+}
+
+// ═══════════════════════════
+//  UPDATE TRAIN
+// ═══════════════════════════
+
+function updateTrain() {
+  train.x += train.spd;
+  if (train.x > W + 80) train.x = -80;
+
+  const g = $('g-train');
+  g.setAttribute('transform', `translate(${train.x.toFixed(1)},0)`);
+
+  // Animate turret barrel angle (slight oscillation)
+  const angle = Math.sin(tick * 0.025) * 15;
+  $('g-turret-up').setAttribute('transform',   `rotate(${angle}, 0, 291)`);
+  $('g-turret-down').setAttribute('transform', `rotate(${-angle}, 0, 291)`);
+
+  turretFire();
+}
+
+// ═══════════════════════════
+//  UPDATE BULLETS
+// ═══════════════════════════
+
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.fy += b.dy;
+
+    // Off-screen: remove
+    if (b.fy < -8 || b.fy > FH + 8) { killEntity(bullets, i); continue; }
+
+    b.el.setAttribute('transform', tf(b.x, sy(b.fy, b.face)));
+
+    // vs mushrooms
+    let hit = false;
+    for (let j = mushrooms.length - 1; j >= 0; j--) {
+      const m = mushrooms[j];
+      if (m.face !== b.face) continue;
+      if (d2(b.x, b.fy, m.x, m.fy) < 12) {
+        m.health--;
+        if (m.health <= 0) {
+          m.el.parentNode?.removeChild(m.el);
+          mushrooms.splice(j, 1);
+          addScore(1);
+        }
+        hit = true; break;
+      }
+    }
+    if (hit) { killEntity(bullets, i); continue; }
+
+    // vs spiders
+    for (let j = spiders.length - 1; j >= 0; j--) {
+      const s = spiders[j];
+      if (s.face !== b.face) continue;
+      if (d2(b.x, b.fy, s.x, s.fy) < 14) {
+        killEntity(spiders, j);
+        spawnMushroom(s.x, s.fy, s.face); // spider death → mushroom
+        addScore(100);
+        hit = true; break;
+      }
+    }
+    if (hit) { killEntity(bullets, i); continue; }
+
+    // vs centipede
+    for (let j = centipede.length - 1; j >= 0; j--) {
+      const seg = centipede[j];
+      if (seg.face !== b.face) continue;
+      if (d2(b.x, b.fy, seg.x, seg.fy) < 10) {
+        spawnMushroom(seg.x, seg.fy, seg.face);
+        addScore(seg.isHead ? 50 : 10);
+        killEntity(centipede, j);
+        hit = true; break;
+      }
+    }
+    if (hit) { killEntity(bullets, i); continue; }
+  }
+}
+
+// ═══════════════════════════
+//  UPDATE CENTIPEDE
+// ═══════════════════════════
+
+const STEP_DOWN = 15;
+
+function updateCentipede() {
+  for (let i = 0; i < centipede.length; i++) {
+    const seg = centipede[i];
+    seg.prevX = seg.x; seg.prevFy = seg.fy; seg.prevFace = seg.face;
+
+    if (i === 0) {
+      // Head: move horizontally, step down on wall hit
+      seg.x += seg.dx * seg.speed;
+
+      // Mushroom avoidance
+      for (const m of mushrooms) {
+        if (m.face === seg.face && d2(seg.x, seg.fy, m.x, m.fy) < 14) {
+          seg.dx  *= -1;
+          seg.fy  += STEP_DOWN;
+          seg.x    = Math.max(10, Math.min(W - 10, seg.x));
+          break;
+        }
+      }
+
+      // Wall bounce → step down
+      if (seg.x >= W - 10) { seg.x = W - 10; seg.dx = -Math.abs(seg.dx); seg.fy += STEP_DOWN; }
+      if (seg.x <= 10)     { seg.x = 10;     seg.dx =  Math.abs(seg.dx); seg.fy += STEP_DOWN; }
+
+      // Möbius crossing (head only — rest follow)
+      if (seg.fy > FH) {
+        seg.face = 1 - seg.face;
+        seg.x    = mx(seg.x);
+        seg.fy  -= FH;
+        ensureLayer(seg, 'agents');
+      } else if (seg.fy < 0) {
+        seg.face = 1 - seg.face;
+        seg.x    = mx(seg.x);
+        seg.fy  += FH;
+        ensureLayer(seg, 'agents');
+      }
+    } else {
+      // Follow previous segment
+      const prev = centipede[i - 1];
+      if (prev.face !== seg.face) {
+        // Snap to prev face when close
+        seg.face = prev.face;
+        seg.x    = prev.prevX;
+        seg.fy   = prev.prevFy;
+        ensureLayer(seg, 'agents');
+      } else {
+        const ddx = prev.x - seg.x, ddy = prev.fy - seg.fy;
+        const mag = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        if (mag > 14) {
+          seg.x  += (ddx / mag) * seg.speed * 1.3;
+          seg.fy += (ddy / mag) * seg.speed * 1.3;
+        }
+      }
+    }
+
+    seg.el.setAttribute('transform', tf(seg.x, sy(seg.fy, seg.face)));
+  }
+
+  // Re-spawn centipede when destroyed
+  if (centipede.length === 0 && tick % 400 === 0) initCentipede();
+}
+
+// ═══════════════════════════
+//  UPDATE SPIDERS
+// ═══════════════════════════
+
+function updateSpiders() {
+  for (let i = spiders.length - 1; i >= 0; i--) {
+    const s = spiders[i];
+
+    // Random wander + mushroom targeting
+    if (tick % 20 === 0) {
+      s.vx += (Math.random() - 0.5) * 0.6;
+      s.vy += (Math.random() - 0.5) * 0.6;
+    }
+
+    // Seek nearest mushroom of any type
+    let bestD = 100, bestM = null;
+    for (const m of mushrooms) {
+      if (m.face !== s.face) continue;
+      const dd = d2(s.x, s.fy, m.x, m.fy);
+      if (dd < bestD) { bestD = dd; bestM = m; }
+    }
+
+    if (bestM) {
+      const ddx = bestM.x - s.x, ddy = bestM.fy - s.fy;
+      const mag = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+      s.vx += (ddx / mag) * 0.08;
+      s.vy += (ddy / mag) * 0.08;
+
+      // Toxify on contact
+      if (bestD < 12 && bestM.type !== 'toxic') {
+        bestM.type = 'toxic';
+        const u = bestM.el.querySelector('use');
+        u?.setAttribute('href', '#s-mush-toxic');
+        bestM.el.removeAttribute('filter');
+        bestM.health = 2;
+        bestM.el.setAttribute('filter', 'url(#f-glow)');
+      }
+    }
+
+    // Clamp speed
+    const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+    if (spd > 2.8) { s.vx = s.vx / spd * 2.8; s.vy = s.vy / spd * 2.8; }
+
+    s.x  += s.vx;
+    s.fy += s.vy;
+
+    // Edge bounce
+    if (s.x < 8  || s.x > W - 8)  s.vx *= -1;
+    if (s.fy < 8 || s.fy > FH - 8) s.vy *= -1;
+    s.x  = Math.max(8, Math.min(W - 8, s.x));
+    s.fy = Math.max(8, Math.min(FH - 8, s.fy));
+
+    // Hurt player
+    if (s.face === player.face && player.invuln === 0
+        && d2(s.x, s.fy, player.x, player.fy) < 16) {
+      playerHit();
+    }
+
+    s.el.setAttribute('transform', tf(s.x, sy(s.fy, s.face)));
+  }
+
+  // Respawn spiders
+  if (spiders.length < 4 && tick % 300 === 0) spawnSpider();
+}
+
+// ═══════════════════════════
+//  UPDATE TRACTORS
+// ═══════════════════════════
+
+function updateTractors() {
+  for (const t of tractors) {
+    // Find target: nearest toxic mushroom on same face
+    if (!t.target || !mushrooms.find(m => m.id === t.target)) {
+      t.target = null;
+      let bestD = Infinity;
+      for (const m of mushrooms) {
+        if (m.face !== t.face || m.type !== 'toxic') continue;
+        const dd = d2(t.x, t.fy, m.x, m.fy);
+        if (dd < bestD) { bestD = dd; t.target = m.id; }
+      }
+    }
+
+    const mush = t.target ? mushrooms.find(m => m.id === t.target) : null;
+
+    if (mush) {
+      const ddx = mush.x - t.x, ddy = mush.fy - t.fy;
+      const mag = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+      t.x  += (ddx / mag) * t.spd;
+      t.fy += (ddy / mag) * t.spd;
+
+      // On arrival: heal mushroom
+      if (mag < 6) {
+        mush.type = inDay(mush.x, mush.fy, mush.face) ? 'day' : 'night';
+        const u = mush.el.querySelector('use');
+        u?.setAttribute('href', `#s-mush-${mush.type}`);
+        mush.el.removeAttribute('filter');
+        if (mush.type === 'night') mush.el.setAttribute('filter', 'url(#f-glow)');
+        mush.health = 3;
+        t.target = null;
+      }
+    } else {
+      // Wander slowly
+      if (tick % 60 === 0) {
+        t.wx = (Math.random() - 0.5) * 1.5;
+        t.wy = (Math.random() - 0.5) * 0.8;
+      }
+      t.x  += t.wx || 0;
+      t.fy += t.wy || 0;
+      t.x  = Math.max(12, Math.min(W - 12, t.x));
+      t.fy = Math.max(12, Math.min(FH - 12, t.fy));
+    }
+
+    t.el.setAttribute('transform', tf(t.x, sy(t.fy, t.face)));
+  }
+}
+
+// ═══════════════════════════
+//  POWER & HUD
+// ═══════════════════════════
+
+function updatePower() {
+  const dayCount = mushrooms.filter(m => m.type === 'day').length;
+  power = Math.min(100, Math.max(0, power + dayCount * 0.002 - 0.008));
+  $('hud-power').setAttribute('width', (power * 1.18).toFixed(1)); // bar max = 118px
+}
+
+function updateHUD() {
+  // Glow pulse for night mushrooms
+  const t = (Math.sin(tick * 0.05) * 0.3 + 0.7).toFixed(2);
+  document.querySelectorAll('[filter="url(#f-glow)"]').forEach(el => {
+    if (!el.closest('#g-train') && !el.closest('#s-spider'))
+      el.setAttribute('opacity', t);
+  });
+}
+
+function addScore(n) {
+  score += n;
+  $('hud-score').textContent = `SCORE: ${score}`;
+}
+
+function updateLivesHUD() {
+  $('hud-lives').textContent = '♥ '.repeat(Math.max(0, lives)).trim();
+}
+
+// ═══════════════════════════
+//  PLAYER HIT / GAME OVER
+// ═══════════════════════════
+
+function playerHit() {
+  lives--;
+  updateLivesHUD();
+  if (lives <= 0) { gameOver(); return; }
+  player.invuln = 120;
+  player.x  = W / 2;
+  player.fy = FH * 0.82;
+  player.face = 0;
+}
+
+function gameOver() {
+  running = false;
+  const g = svgEl('g', {});
+  g.appendChild(svgEl('rect', { x: 180, y: 235, width: 440, height: 130, rx: 10, fill: '#000', stroke: '#ff2222', 'stroke-width': 2 }));
+  const t1 = svgEl('text', { x: 400, y: 285, 'text-anchor': 'middle', fill: '#ff2222', 'font-family': "'Courier New',monospace", 'font-size': '34', 'font-weight': 'bold' });
+  t1.textContent = 'GAME OVER';
+  const t2 = svgEl('text', { x: 400, y: 320, 'text-anchor': 'middle', fill: '#ffff00', 'font-family': "'Courier New',monospace", 'font-size': '16' });
+  t2.textContent = `FINAL SCORE: ${score}`;
+  const t3 = svgEl('text', { x: 400, y: 350, 'text-anchor': 'middle', fill: '#888', 'font-family': "'Courier New',monospace", 'font-size': '12' });
+  t3.textContent = 'PRESS F5 TO RESTART';
+  g.append(t1, t2, t3);
+  document.getElementById('game').appendChild(g);
+}
+
+// ═══════════════════════════
+//  CONTROLS
+// ═══════════════════════════
+
+function setupTilt() {
+  // iOS 13+ requires explicit permission
+  if (typeof DeviceOrientationEvent !== 'undefined'
+      && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(r => { if (r === 'granted') listenTilt(); })
+      .catch(() => {});
+  } else {
+    listenTilt();
+  }
+}
+
+function listenTilt() {
+  window.addEventListener('deviceorientation', e => {
+    // gamma: left/right (-90→+90) · beta: front/back tilt
+    tilt.x = Math.max(-1, Math.min(1, (e.gamma || 0) / 28));
+    tilt.y = Math.max(-1, Math.min(1, ((e.beta || 45) - 45) / 28));
+  });
+}
+
+function setupKeyboard() {
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space') { e.preventDefault(); playerFire(); }
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+}
+
+function readKeyboard() {
+  const lx = (keys['ArrowRight']||keys['KeyD'] ? 1 : 0) - (keys['ArrowLeft']||keys['KeyA'] ? 1 : 0);
+  const ly = (keys['ArrowDown'] ||keys['KeyS'] ? 1 : 0) - (keys['ArrowUp']  ||keys['KeyW'] ? 1 : 0);
+  // Keyboard overrides tilt if any key pressed
+  if (lx || ly) { tilt.x = lx; tilt.y = ly; }
+}
+
+function setupTouch() {
+  const svg = document.getElementById('game');
+  svg.addEventListener('touchstart', e => {
+    e.preventDefault();
+    playerFire();
+  }, { passive: false });
+}
+
+// ═══════════════════════════
+//  GAME LOOP
+// ═══════════════════════════
+
+function loop() {
+  if (!running) return;
+  tick++;
+
+  readKeyboard();
+  updatePlayer();
+  updateTrain();
+  updateBullets();
+  updateCentipede();
+  updateSpiders();
+  updateTractors();
+  updatePower();
+  updateHUD();
+
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════
+//  STARTUP
+// ═══════════════════════════
+
+$('start-btn').addEventListener('click', () => {
+  $('overlay').style.display = 'none';
+  setupTilt();
+  setupKeyboard();
+  setupTouch();
+
+  initStars();
+  initSleepers();
+  initMushrooms();
+  initCentipede();
+  spawnSpider(0);
+  spawnSpider(1);
+  spawnSpider(0);
+  spawnTractor(0);
+  spawnTractor(1);
+  initPlayer();
+
+  running = true;
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
