@@ -1423,8 +1423,21 @@ function update(){
     return;
   }
 
+function togglePauseGame() {
+  if(!running||gameOver)return;
+  paused = !paused;
+  $('btn-pause-icon').setAttribute('d', paused ? 'M643 523l8 5l-8 5z' : 'M643 523h2v10h-2zm5 0h2v10h-2z');
+  const trk = level%2===0 ? 'aud-game-even' : 'aud-game-odd';
+  const a = $(trk);
+  if(a) {
+    if(paused) a.pause();
+    else if(stateMusic) a.play().catch(()=>{});
+  }
+}
+
+function frame(){
   if(gameOver){if(consume('KeyR'))reset();return;}
-  if(paused){if(consume('Escape')||consume('KeyP')){paused=false;$('btn-pause-icon').setAttribute('d','M643 523h2v10h-2zm5 0h2v10h-2z');}return;}
+  if(paused){if(consume('Escape')||consume('KeyP')){togglePauseGame();}return;}
   if(levelWaiting||inTransition){keysFired.clear();return;}
 
   tick++;
@@ -1437,8 +1450,7 @@ function update(){
   if(consume('KeyR'))tryTractor();
   if(consume('KeyE'))tryDrone();
   if(consume('Escape')||consume('KeyP')){
-    paused=true;
-    $('btn-pause-icon').setAttribute('d','M643 523l8 5l-8 5z');
+    togglePauseGame();
   }
   if(player.fireCD>0)player.fireCD--;
 
@@ -1589,8 +1601,8 @@ function renderTrain(){
   else{imgCannon.setAttribute('visibility','hidden');cannonProc.removeAttribute('display');}
 
   const sx=player.x*CW+CW/2;
-  let trainTransform=`translate(${sx.toFixed(1)},${TRACK_CY-30})`;
-  if(shakeInt>0)trainTransform=`translate(${(sx+shakeX).toFixed(1)},${(TRACK_CY-30+shakeY).toFixed(1)})`;
+  let trainTransform=`translate(${sx.toFixed(1)},${TRACK_CY-15})`;
+  if(shakeInt>0)trainTransform=`translate(${(sx+shakeX).toFixed(1)},${(TRACK_CY-15+shakeY).toFixed(1)})`;
   $('g-train').setAttribute('transform',trainTransform);
 
   // Also shake the field
@@ -1770,16 +1782,10 @@ function startGame(){
 
 $('btn-start').addEventListener('click',startGame);
 $('btn-start').addEventListener('touchend',e=>{e.preventDefault();startGame();});
-$('btn-pause').addEventListener('click',()=>{
-  if(!running||gameOver)return;
-  paused=!paused;
-  $('btn-pause-icon').setAttribute('d', paused ? 'M643 523l8 5l-8 5z' : 'M643 523h2v10h-2zm5 0h2v10h-2z');
-});
+$('btn-pause').addEventListener('click',togglePauseGame);
 $('btn-pause').addEventListener('touchend',e=>{
   e.preventDefault();
-  if(!running||gameOver)return;
-  paused=!paused;
-  $('btn-pause-icon').setAttribute('d', paused ? 'M643 523l8 5l-8 5z' : 'M643 523h2v10h-2zm5 0h2v10h-2z');
+  togglePauseGame();
 });
 
 // Settings Panel interactions
