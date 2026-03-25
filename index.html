@@ -147,7 +147,7 @@
   <!-- Anchor: translate(trainX, 280) -->
   <g id="g-train">
     <!-- Chassis (replaced by train.svg if present) -->
-    <image id="img-train" href="train.svg" x="-55" y="-18" width="110" height="36" visibility="hidden"/>
+    <image id="img-train" href="files/train.svg" x="-55" y="-18" width="110" height="36" visibility="hidden"/>
     <g id="g-train-proc">
       <rect x="-47" y="-12" width="94" height="22" rx="4" fill="#181818" stroke="#303030" stroke-width="1.5"/>
       <rect x="-40" y="-8" width="16" height="12" rx="2" fill="#0b1808"/>
@@ -180,7 +180,7 @@
     <circle cx="0" cy="-15" r="8.5" fill="#222" stroke="#444" stroke-width="1.5"/>
     <!-- Primary cannon (g-cannon rotates around 0,-15) -->
     <g id="g-cannon">
-      <image id="img-cannon" href="cannon.svg" x="-9" y="-42" width="18" height="28" visibility="hidden"/>
+      <image id="img-cannon" href="files/cannon.svg" x="-9" y="-42" width="18" height="28" visibility="hidden"/>
       <g id="g-cannon-proc">
         <rect x="-3.5" y="-35" width="7" height="22" rx="3" fill="#484848" stroke="#606060" stroke-width=".8"/>
         <rect x="-5" y="-38" width="10" height="5" rx="2" fill="#383838" stroke="#525252" stroke-width=".8"/>
@@ -287,20 +287,20 @@
   <text x="400" y="40" text-anchor="middle" font-family="monospace" font-size="9" fill="#003322" letter-spacing="10">~ SUPREME EDITION ~</text>
 
   <!-- Title -->
-  <image href="logo.svg" x="299" y="15" width="202" height="104" id="g-title"/>
+  <image href="files/logo.svg" x="299" y="15" width="202" height="104" id="g-title"/>
 
   <!-- Crawling centipede -->
   <g transform="translate(0,118)">
     <g id="marquee-centi">
       <!-- segments (tail → head, right to left) -->
-      <image href="centipede-seg.svg" x="-158" y="-12"  width="24" height="30" transform="translate(0,2)"/>
-      <image href="centipede-seg.svg" x="-140" y="-12"  width="24" height="30" transform="translate(0,-1)"/>
-      <image href="centipede-seg.svg" x="-122" y="-12"  width="24" height="30" transform="translate(0,2)"/>
-      <image href="centipede-seg.svg" x="-104" y="-12"  width="24" height="30" transform="translate(0,-2)"/>
-      <image href="centipede-seg.svg" x="-86"  y="-12"  width="24" height="30" transform="translate(0,3)"/>
-      <image href="centipede-seg.svg" x="-68"  y="-12"  width="24" height="30" transform="translate(0,-1)"/>
+      <image href="files/centipede-seg.svg" x="-158" y="-12"  width="24" height="30" transform="translate(0,2)"/>
+      <image href="files/centipede-seg.svg" x="-140" y="-12"  width="24" height="30" transform="translate(0,-1)"/>
+      <image href="files/centipede-seg.svg" x="-122" y="-12"  width="24" height="30" transform="translate(0,2)"/>
+      <image href="files/centipede-seg.svg" x="-104" y="-12"  width="24" height="30" transform="translate(0,-2)"/>
+      <image href="files/centipede-seg.svg" x="-86"  y="-12"  width="24" height="30" transform="translate(0,3)"/>
+      <image href="files/centipede-seg.svg" x="-68"  y="-12"  width="24" height="30" transform="translate(0,-1)"/>
       <!-- HEAD -->
-      <image href="centipede-head.svg" x="-50" y="-26" width="46" height="58"/>
+      <image href="files/centipede-head.svg" x="-50" y="-26" width="46" height="58"/>
     </g>
   </g>
 
@@ -331,8 +331,8 @@
 <!-- audio mp3 placeholders -->
 <foreignObject width="0" height="0">
   <div xmlns="http://www.w3.org/1999/xhtml">
-    <audio id="aud-title" src="title.mp3" loop preload="auto"/>
-    <audio id="aud-game"  src="game.mp3"  loop preload="auto"/>
+    <audio id="aud-title" src="files/title.mp3" loop preload="auto"/>
+    <audio id="aud-game"  src="files/game.mp3"  loop preload="auto"/>
   </div>
 </foreignObject>
 </svg>
@@ -428,13 +428,13 @@ function preloadAssets(){
   for(const[name,def]of Object.entries(ASSET_DEFS)){
     const img=new Image();
     img.onload=()=>{loadedAssets[name]=def;};
-    img.src=`${name}.svg`;
+    img.src=`files/${name}.svg`;
   }
 }
 function assetImage(name){
   if(!loadedAssets[name])return null;
   const d=loadedAssets[name];
-  return E('image',{href:`${name}.svg`,x:d.ox,y:d.oy,width:d.w,height:d.h});
+  return E('image',{href:`files/${name}.svg`,x:d.ox,y:d.oy,width:d.w,height:d.h});
 }
 
 // ════════════════════════════════════════════════════════════
