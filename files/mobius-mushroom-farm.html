@@ -1589,8 +1589,8 @@ function renderTrain(){
   else{imgCannon.setAttribute('visibility','hidden');cannonProc.removeAttribute('display');}
 
   const sx=player.x*CW+CW/2;
-  let trainTransform=`translate(${sx.toFixed(1)},${TRACK_CY})`;
-  if(shakeInt>0)trainTransform=`translate(${(sx+shakeX).toFixed(1)},${(TRACK_CY+shakeY).toFixed(1)})`;
+  let trainTransform=`translate(${sx.toFixed(1)},${TRACK_CY-30})`;
+  if(shakeInt>0)trainTransform=`translate(${(sx+shakeX).toFixed(1)},${(TRACK_CY-30+shakeY).toFixed(1)})`;
   $('g-train').setAttribute('transform',trainTransform);
 
   // Also shake the field
