@@ -18,8 +18,7 @@
   .eye-b{animation:rgb-cycle 1.8s linear infinite .6s}
   .eye-c{animation:rgb-cycle 1.8s linear infinite 1.2s}
 
-  @keyframes crawl{0%{transform:translateX(-320px)}100%{transform:translateX(960px)}}
-  #marquee-centi{animation:crawl 7s linear infinite}
+  .panel-fade{transition:opacity 0.6s ease-in-out}
 
   @keyframes title-glow{
     0%,100%{filter:drop-shadow(0 0 8px #00ff88) drop-shadow(0 0 18px #004422)}
@@ -273,11 +272,6 @@
   <rect x="6"  y="6"  width="788" height="532" rx="8" fill="none" stroke="#00ff44" stroke-width="1.8" opacity=".5"/>
   <rect x="10" y="10" width="780" height="524" rx="6" fill="none" stroke="#005522" stroke-width=".8" opacity=".6"/>
 
-  <!-- Accent lines -->
-  <line x1="30" y1="108" x2="770" y2="108" stroke="#003322" stroke-width="1"/>
-  <line x1="30" y1="292" x2="770" y2="292" stroke="#003322" stroke-width="1"/>
-  <line x1="30" y1="436" x2="770" y2="436" stroke="#003322" stroke-width="1"/>
-
   <!-- Diamond corners -->
   <polygon points="30,18 40,28 30,38 20,28" fill="#00ff44" opacity=".4"/>
   <polygon points="770,18 780,28 770,38 760,28" fill="#00ff44" opacity=".4"/>
@@ -286,46 +280,63 @@
 
   <text x="400" y="40" text-anchor="middle" font-family="monospace" font-size="9" fill="#003322" letter-spacing="10">~ SUPREME EDITION ~</text>
 
-  <!-- Title -->
+  <!-- Perimeter centipede (JS-animated, rendered BEFORE logo so it passes behind it) -->
+  <g id="centi-parade">
+    <g id="cp-10" opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-9"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-8"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-7"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-6"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-5"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-4"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-3"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-2"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-1"  opacity="0"><image href="centipede-seg.svg" x="-13" y="-16" width="26" height="32"/></g>
+    <g id="cp-0"  opacity="0"><image href="centipede-head.svg" x="-25" y="-31" width="49" height="61"/></g>
+  </g>
+
+  <!-- Title (on top of centipede so it disappears behind it) -->
   <image href="logo.svg" x="299" y="15" width="202" height="104" id="g-title"/>
 
-  <!-- Crawling centipede -->
-  <g transform="translate(0,118)">
-    <g id="marquee-centi">
-      <!-- segments (tail → head, right to left) -->
-      <image href="centipede-seg.svg" x="-158" y="-12"  width="24" height="30" transform="translate(0,2)"/>
-      <image href="centipede-seg.svg" x="-140" y="-12"  width="24" height="30" transform="translate(0,-1)"/>
-      <image href="centipede-seg.svg" x="-122" y="-12"  width="24" height="30" transform="translate(0,2)"/>
-      <image href="centipede-seg.svg" x="-104" y="-12"  width="24" height="30" transform="translate(0,-2)"/>
-      <image href="centipede-seg.svg" x="-86"  y="-12"  width="24" height="30" transform="translate(0,3)"/>
-      <image href="centipede-seg.svg" x="-68"  y="-12"  width="24" height="30" transform="translate(0,-1)"/>
-      <!-- HEAD -->
-      <image href="centipede-head.svg" x="-50" y="-26" width="46" height="58"/>
+  <!-- ── PANEL 1: HIGH SCORES ── -->
+  <g id="panel-scores" class="panel-fade">
+    <line x1="30" y1="145" x2="770" y2="145" stroke="#003322" stroke-width="1"/>
+    <text x="400" y="172" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#ffff00" letter-spacing="6">HIGH SCORES</text>
+    <line x1="200" y1="182" x2="600" y2="182" stroke="#333300" stroke-width="1"/>
+    <g id="g-score-rows"/>
+  </g>
+
+  <!-- ── PANEL 2: INSTRUCTIONS ── -->
+  <g id="panel-instructions" class="panel-fade" style="opacity:0;pointer-events:none">
+    <line x1="30" y1="145" x2="770" y2="145" stroke="#003322" stroke-width="1"/>
+    <text x="400" y="172" text-anchor="middle" font-family="monospace" font-size="10" fill="#888" letter-spacing="4">KILL STREAKS UNLOCK POWER-UPS</text>
+    <line x1="200" y1="182" x2="600" y2="182" stroke="#1a1a00" stroke-width="1"/>
+    <g font-family="monospace" font-size="12">
+      <text x="400" y="218" text-anchor="middle" fill="#44ff44" font-weight="bold">✦ 3×  AUTO-AIM ✦</text>
+      <text x="400" y="248" text-anchor="middle" fill="#ffaa22" font-weight="bold">✦ 6×  DOUBLE SHOT ✦</text>
+      <text x="400" y="278" text-anchor="middle" fill="#ff4422" font-weight="bold">✦ 10× DUAL CANNON ✦</text>
+      <text x="400" y="308" text-anchor="middle" fill="#4488ff" font-weight="bold">✦ 15× TRACTOR SHIELD ✦</text>
+    </g>
+    <line x1="200" y1="330" x2="600" y2="330" stroke="#003322" stroke-width="1"/>
+    <text x="400" y="352" text-anchor="middle" font-family="monospace" font-size="10" fill="#888" letter-spacing="4">CONTROLS</text>
+    <g font-family="monospace" font-size="10" fill="#668866">
+      <text x="400" y="380" text-anchor="middle">◄ ► / MOUSE ─── MOVE TRAIN</text>
+      <text x="400" y="400" text-anchor="middle">SPACE / SCROLL ─── FLIP CANNON</text>
+      <text x="400" y="420" text-anchor="middle">ENTER / L-CLICK ─── FIRE</text>
+      <text x="400" y="440" text-anchor="middle">R / R-CLICK ─── TRACTOR BEAM</text>
+      <text x="400" y="460" text-anchor="middle">E ─── LAUNCH DRONE</text>
     </g>
   </g>
 
-  <!-- High score table -->
-  <text x="400" y="186" text-anchor="middle" font-family="monospace" font-size="13" font-weight="bold" fill="#ffff00" letter-spacing="6">HIGH SCORES</text>
-  <line x1="160" y1="193" x2="640" y2="193" stroke="#333300" stroke-width="1"/>
-  <g id="g-score-rows"/>
-
-  <!-- Legend -->
-  <line x1="100" y1="310" x2="700" y2="310" stroke="#1a1a00" stroke-width="1"/>
-  <text x="400" y="326" text-anchor="middle" font-family="monospace" font-size="9" fill="#555" letter-spacing="4">KILL STREAKS UNLOCK POWER-UPS</text>
-  <g font-family="monospace" font-size="9">
-    <text x="110" y="348" fill="#44aa44">3×  AUTO-AIM</text>
-    <text x="110" y="363" fill="#aa6622">6×  2× SHOT (both faces)</text>
-    <text x="110" y="378" fill="#aa2200">10× DUAL CANNON</text>
-    <text x="110" y="393" fill="#2244aa">15× TRACTOR SHIELD</text>
-    <text x="400" y="348" fill="#888">◄ ► / Mouse  Move train</text>
-    <text x="400" y="363" fill="#888">SPACE / Scroll  Flip cannon</text>
-    <text x="400" y="378" fill="#888">ENTER / L-Click  Fire · R TRACTOR</text>
-    <text x="400" y="393" fill="#888">E  Launch drone · R-Click  Tractor</text>
+  <!-- ── PANEL 3: START ── -->
+  <g id="panel-start" class="panel-fade" style="opacity:0;pointer-events:none">
+    <line x1="30" y1="145" x2="770" y2="145" stroke="#003322" stroke-width="1"/>
+    <text x="400" y="280" text-anchor="middle" font-family="monospace" font-size="10" fill="#555">── MÖBIUS TOPOLOGICAL DEFENCE SYSTEM v5 ──</text>
+    <text x="400" y="330" text-anchor="middle" font-family="monospace" font-size="20" font-weight="bold" fill="#00ff88" letter-spacing="5" class="blink">▸ PRESS ENTER TO START ◂</text>
+    <text x="400" y="365" text-anchor="middle" font-family="monospace" font-size="11" fill="#224422" class="blink" style="animation-delay:.4s">INSERT COIN  ·  INSERT COIN  ·  INSERT COIN</text>
   </g>
-  <text x="400" y="452" text-anchor="middle" font-family="monospace" font-size="10" fill="#555">── MÖBIUS TOPOLOGICAL DEFENCE SYSTEM v5 ──</text>
-  <text x="400" y="476" text-anchor="middle" font-family="monospace" font-size="16" font-weight="bold" fill="#00ff88" letter-spacing="4" class="blink">▸ PRESS ENTER TO START ◂</text>
-  <text x="400" y="496" text-anchor="middle" font-family="monospace" font-size="9" fill="#224422" class="blink" style="animation-delay:.4s">INSERT COIN  ·  INSERT COIN  ·  INSERT COIN</text>
-  <rect x="260" y="460" width="280" height="44" rx="6" fill="transparent" id="btn-start" style="cursor:pointer"/>
+
+  <rect x="0" y="0" width="800" height="544" fill="transparent" id="btn-start" style="cursor:pointer"/>
 </g>
 
 <!-- audio mp3 placeholders -->
@@ -629,32 +640,29 @@ function getScores(){try{return JSON.parse(localStorage.getItem('mmf-v5-scores')
 function saveScore(score,initials='SYS'){
   try{
     const sc=getScores();
-    sc.push({score,initials});sc.sort((a,b)=>b.score-a.score);sc.splice(5);
+    sc.push({score,initials});sc.sort((a,b)=>b.score-a.score);sc.splice(10);
     localStorage.setItem('mmf-v5-scores',JSON.stringify(sc));
   }catch{}
 }
 function getHiScore(){const sc=getScores();return sc[0]?.score||0;}
-function qualifiesForTopFive(score){
+function qualifiesForLeaderboard(score){
   const sc=getScores();
-  return sc.length<5||score>sc[sc.length-1]?.score;
+  return sc.length<10||score>sc[sc.length-1]?.score;
 }
 function renderScoreTable(){
   const g=$('g-score-rows'); while(g.firstChild)g.firstChild.remove();
-  const scores=getScores();
-  const RANKS=['🥇','🥈','🥉','4th','5th'];
-  const COLS=['#ffcc00','#aaaaaa','#cc7733','#667788','#445566'];
-  if(!scores.length){
-    const t=E('text',{x:'400',y:'255','text-anchor':'middle','font-family':'monospace','font-size':'11',fill:'#333'});
-    t.textContent='── NO SCORES YET ──';g.appendChild(t);return;
-  }
-  scores.forEach(({score,initials='SYS'},i)=>{
-    const y=218+i*18;
-    const r=E('text',{x:'240',y:String(y),'font-family':'monospace','font-size':'11',fill:COLS[i]});r.textContent=RANKS[i];
-    const ini=E('text',{x:'380',y:String(y),'text-anchor':'middle','font-family':'monospace','font-size':'12','font-weight':'bold',fill:COLS[i]});ini.textContent=initials;
-    const s=E('text',{x:'500',y:String(y),'text-anchor':'middle','font-family':'monospace','font-size':'12',fill:COLS[i],'font-weight':'bold'});
-    s.textContent=String(score).padStart(7,'0');
+  const saved=getScores();
+  const RANKS=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+  const COLS=['#ffcc00','#dddddd','#cc8833','#88aacc','#6688aa','#558888','#447766','#445566','#334455','#334444'];
+  for(let i=0;i<10;i++){
+    const entry=saved[i]||{score:0,initials:'SYS'};
+    const y=205+i*25;
+    const r=E('text',{x:'230',y:String(y),'text-anchor':'end','font-family':'monospace','font-size':'10',fill:COLS[i]});r.textContent=RANKS[i];
+    const ini=E('text',{x:'370',y:String(y),'text-anchor':'middle','font-family':'monospace','font-size':'12','font-weight':'bold',fill:COLS[i]});ini.textContent=entry.initials;
+    const s=E('text',{x:'530',y:String(y),'text-anchor':'middle','font-family':'monospace','font-size':'12',fill:COLS[i],'font-weight':'bold'});
+    s.textContent=String(entry.score).padStart(7,'0');
     g.append(r,ini,s);
-  });
+  }
 }
 
 // Initials entry state
@@ -926,7 +934,7 @@ function damagePlayer(amount){
   if(player.shield<=0){
     player.energy=clamp(player.energy-amount*.5,0,ENERGY_MAX);
     if(player.energy<=0){gameOver=true;SFX.gameOver();stopMusic('aud-game');
-      if(qualifiesForTopFive(player.score))setTimeout(()=>startInitialsEntry(),500);
+      if(qualifiesForLeaderboard(player.score))setTimeout(()=>startInitialsEntry(),500);
       else saveScore(player.score,'SYS');}
   }
 }
@@ -1629,7 +1637,75 @@ function render(){
 // ════════════════════════════════════════════════════════════
 //  MAIN LOOP
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  TITLE SCREEN: PERIMETER CENTIPEDE + PANEL CAROUSEL
+// ════════════════════════════════════════════════════════════
+const CENTI_PARTS=11,CENTI_SPACING=22,CENTI_LOOP_S=12;
+const PERI=[[400,50],[770,50],[770,490],[30,490],[30,50],[400,50]];
+let periLen=[],periTotal=0;
+(function(){
+  for(let i=0;i<PERI.length-1;i++){
+    const dx=PERI[i+1][0]-PERI[i][0],dy=PERI[i+1][1]-PERI[i][1];
+    const l=Math.sqrt(dx*dx+dy*dy);periLen.push(l);periTotal+=l;
+  }
+})();
+function periPos(t){
+  t=((t%1)+1)%1;
+  let d=t*periTotal;
+  for(let i=0;i<periLen.length;i++){
+    if(d<=periLen[i]){
+      const f=d/periLen[i];
+      return{x:PERI[i][0]+(PERI[i+1][0]-PERI[i][0])*f,
+             y:PERI[i][1]+(PERI[i+1][1]-PERI[i][1])*f,
+             a:Math.atan2(PERI[i+1][1]-PERI[i][1],PERI[i+1][0]-PERI[i][0])};
+    }
+    d-=periLen[i];
+  }
+  return{x:400,y:50,a:0};
+}
+function animateCentipede(now){
+  const t=now/1000/CENTI_LOOP_S;
+  for(let i=0;i<CENTI_PARTS;i++){
+    const st=t-(i*CENTI_SPACING/periTotal);
+    const p=periPos(st);
+    const und=Math.sin(now/1000*4+i*0.8)*5;
+    const px=p.x+(-Math.sin(p.a))*und;
+    const py=p.y+Math.cos(p.a)*und;
+    const deg=p.a*180/Math.PI;
+    // Fade near logo center (400,67)
+    const ldx=px-400,ldy=py-67;
+    const ld=Math.sqrt(ldx*ldx+ldy*ldy);
+    const op=Math.min(1,Math.max(0,(ld-40)/60));
+    const el=$(i===0?'cp-0':'cp-'+i);
+    if(el){
+      el.setAttribute('transform',`translate(${px.toFixed(1)},${py.toFixed(1)}) rotate(${deg.toFixed(1)})`);
+      el.setAttribute('opacity',op.toFixed(2));
+    }
+  }
+}
+
+// Panel carousel
+const PANELS=['panel-scores','panel-instructions','panel-start'];
+let curPanel=0,panelTimer=null;
+function showPanel(idx){
+  PANELS.forEach((id,i)=>{
+    const el=$(id);
+    if(i===idx){el.style.opacity='1';el.style.pointerEvents='auto';}
+    else{el.style.opacity='0';el.style.pointerEvents='none';}
+  });
+  curPanel=idx;
+}
+function startPanelCycling(){
+  if(panelTimer)clearInterval(panelTimer);
+  curPanel=0;showPanel(0);
+  panelTimer=setInterval(()=>{curPanel=(curPanel+1)%PANELS.length;showPanel(curPanel);},4000);
+}
+function stopPanelCycling(){
+  if(panelTimer){clearInterval(panelTimer);panelTimer=null;}
+}
+
 function startGame(){
+  stopPanelCycling();
   $('g-overlay').style.display='none';
   initStars();initSleepers();preloadAssets();
   reset();running=true;
@@ -1662,6 +1738,7 @@ window.addEventListener('keydown',e=>{
 // Show start screen music + scores
 window.addEventListener('load',()=>{
   renderScoreTable();
+  startPanelCycling();
   playMusic('aud-title');
 });
 
@@ -1671,6 +1748,7 @@ function frame(now){
   const dt=now-lastT;lastT=now;acc+=dt;
   while(acc>=STEP){update();acc-=STEP;}
   render();
+  if(!running)animateCentipede(now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(frame);});
